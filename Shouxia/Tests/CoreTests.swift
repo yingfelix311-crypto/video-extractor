@@ -44,6 +44,21 @@ import Foundation
         }
         check(history.done.first!.isComplete, "complete status")
         check(history.done.first!.size == 123, "integer bytes")
+        func fixture(_ fields: String) throws -> DownloadItem {
+            try JSONDecoder().decode(DownloadItem.self, from: Data(("{\"id\":\"test\",\"title\":\"Test\",\"url\":\"https://example.com/test\"," + fields + "}").utf8))
+        }
+        let queuedAudio = try fixture(#""status":"downloading","download_type":"audio","format":"mp3""#)
+        let legacyAudio = try fixture(#""status":"finished","filename":"song.MP3""#)
+        let failedAudio = try fixture(#""status":"error","format":"mp3""#)
+        let explicitVideo = try fixture(#""status":"finished","download_type":"video","filename":"odd.mp3""#)
+        check(queuedAudio.isAudio && legacyAudio.isAudio && failedAudio.isAudio, "audio recognized before filename and in legacy history")
+        check(!explicitVideo.isAudio && !item.isAudio, "explicit video type wins over filename")
+        check(TaskList.visible(active: [queuedAudio], pending: [], history: [item], audioOnly: true, filter: "全部").count == 1, "audio tab excludes video history")
+        check(TaskList.visible(active: [queuedAudio], pending: [], history: [item], audioOnly: false, filter: "进行中").isEmpty, "status and media filters combine")
+        check(TaskList.visible(active: [], pending: [], history: [failedAudio], audioOnly: true, filter: "已完成").isEmpty, "failed is not completed")
+        let removal = try JSONSerialization.jsonObject(with: HistoryRemoval.body(items: [queuedAudio, legacyAudio, failedAudio, item])) as! [String: Any]
+        check(Set(removal["ids"] as! [String]) == Set([legacyAudio.url, item.url]), "only terminal selected records, deduplicated")
+        check(removal["where"] as? String == "done" && removal["delete_files"] as? Bool == false, "bulk history removal preserves files and queue")
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }

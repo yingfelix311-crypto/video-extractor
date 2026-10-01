@@ -127,7 +127,30 @@ enum ConnectionState: Equatable {
     func cancel(_ item: DownloadItem) async { await perform(.cancel, item: item) }
     func retry(_ item: DownloadItem) async { await perform(.retry, item: item) }
     func startPending(_ item: DownloadItem) async { await perform(.start, item: item) }
-    func clear(_ item: DownloadItem) async { await perform(.clear, item: item) }
+    func canRemoveHistory(_ item: DownloadItem) -> Bool {
+        guard item.isHistory, !exporting.contains(item.url) else { return false }
+        // Keep records needed for an unfinished or failed export so saving can be retried.
+        let record = ExportRegistry.records[ExportRegistry.recordKey(for: item.url, folder: item.folder)]
+        return !item.isComplete || record == nil || record?.exportedPath != nil
+    }
+    func clear(_ item: DownloadItem) async { _ = await clearHistory(ids: [item.url]) }
+    func clearHistory(ids: Set<String>) async -> Bool {
+        guard !updater.isUpdating, !isSubmitting else { return false }
+        let selected = completed.filter { ids.contains($0.url) && canRemoveHistory($0) }
+        guard !selected.isEmpty else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await backend.post("delete", body: HistoryRemoval.body(items: selected))
+            let removed = Set(selected.map(\.url))
+            completed.removeAll { removed.contains($0.url) }
+            await refresh()
+            return true
+        } catch {
+            report(error)
+            return false
+        }
+    }
 
     private func perform(_ action: DownloadAction, item: DownloadItem) async {
         if updater.isUpdating { message = "引擎更新中，请稍后重试。"; return }

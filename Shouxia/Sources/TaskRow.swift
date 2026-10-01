@@ -12,7 +12,7 @@ struct TaskRow: View {
         guard let url = item.localFileURL else { return false }
         return FileManager.default.fileExists(atPath: url.path)
     }
-    private var isAudio: Bool { ["mp3", "m4a", "wav", "flac", "opus", "ogg"].contains(URL(fileURLWithPath: item.filename ?? "").pathExtension.lowercased()) }
+
     private var percentage: Double { min(100, max(0, item.percent ?? 0)) }
     private var detail: String {
         if item.isFailed { return "未能下载 · 查看原因或重试" }
@@ -32,7 +32,7 @@ struct TaskRow: View {
         HStack(alignment: .center, spacing: 15) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10).fill(Ink.surface)
-                Image(systemName: item.isFailed ? "exclamationmark" : (item.isComplete ? (isAudio ? "waveform" : "play.rectangle") : "arrow.down"))
+                Image(systemName: item.isFailed ? "exclamationmark" : (item.isComplete ? (item.isAudio ? "waveform" : "play.rectangle") : "arrow.down"))
                     .font(.system(size: 22, weight: .regular))
                     .foregroundStyle(item.isFailed ? Ink.danger : Ink.mint)
             }.frame(width: 46, height: 46)
@@ -83,7 +83,7 @@ struct TaskRow: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(item.url, forType: .string)
                 }
-                if item.isComplete || item.isFailed {
+                if store.canRemoveHistory(item) {
                     Divider()
                     Button("移除记录（保留文件）") { Task { await store.clear(item) } }
                 }

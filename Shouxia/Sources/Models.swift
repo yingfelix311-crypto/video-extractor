@@ -10,8 +10,12 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
     var id: String { url }
     enum CodingKeys: String, CodingKey {
         case mediaID = "id"
+        case downloadType = "download_type"
+        case format
         case title, url, status, percent, speed, eta, size, filename, folder, error, msg, quality
     }
+    let downloadType: String?
+    let format: String?
     let title: String
     let url: String
     let status: String
@@ -24,6 +28,13 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
     let error: String?
     let msg: String?
     let quality: String?
+    var isAudio: Bool {
+        if let type = downloadType?.lowercased(), ["audio", "video"].contains(type) { return type == "audio" }
+        let audioFormats = ["mp3", "m4a", "aac", "wav", "flac", "opus", "ogg", "oga", "alac", "aiff"]
+        if let format, audioFormats.contains(format.lowercased()) { return true }
+        return audioFormats.contains(URL(fileURLWithPath: filename ?? "").pathExtension.lowercased())
+    }
+    var isHistory: Bool { isComplete || isFailed }
     var isComplete: Bool { status == "finished" }
     var isFailed: Bool { status == "error" }
     var localFileURL: URL? {
@@ -118,5 +129,21 @@ struct ActionRequest {
             payload = ["ids": [item.url]]
         }
         body = try JSONSerialization.data(withJSONObject: payload)
+    }
+}
+
+
+enum TaskList {
+    static func visible(active: [DownloadItem], pending: [DownloadItem], history: [DownloadItem], audioOnly: Bool, filter: String) -> [DownloadItem] {
+        let candidates = filter == "进行中" ? active + pending : filter == "已完成" ? history.filter(\.isComplete) : active + pending + history
+        var seen = Set<String>()
+        return candidates.filter { $0.isAudio == audioOnly && seen.insert($0.url).inserted }
+    }
+}
+
+enum HistoryRemoval {
+    static func body(items: [DownloadItem]) throws -> Data {
+        let ids = Array(Set(items.filter(\.isHistory).map(\.url))).sorted()
+        return try JSONSerialization.data(withJSONObject: ["ids": ids, "where": "done", "delete_files": false])
     }
 }
