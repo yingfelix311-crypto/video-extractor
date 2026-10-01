@@ -89,13 +89,15 @@ struct ShouxiaApp: App {
 @MainActor enum FileActions {
     static var root: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/MeTube", isDirectory: true) }
     static func revealFolder(_ path: String? = nil) { NSWorkspace.shared.open(path.map { URL(fileURLWithPath:$0) } ?? root) }
-    static func chooseFolder(store: DownloadStore) {
+    @discardableResult static func chooseFolder(store: DownloadStore) -> Bool {
         let panel = NSOpenPanel()
         panel.title = "选择视频保存文件夹"; panel.prompt = "选择文件夹"
         panel.canChooseDirectories = true; panel.canChooseFiles = false
         panel.allowsMultipleSelection = false; panel.canCreateDirectories = true
         panel.directoryURL = URL(fileURLWithPath:store.destinationPath,isDirectory:true)
-        if panel.runModal() == .OK, let url=panel.url { store.setDestination(url) }
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        store.setDestination(url)
+        return true
     }
     static func reveal(_ item: DownloadItem) {
         if let url = item.localFileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }

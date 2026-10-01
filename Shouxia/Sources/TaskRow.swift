@@ -5,8 +5,11 @@ struct TaskRow: View {
     let item: DownloadItem
     @ObservedObject var store: DownloadStore
     var pending = false
-    @State private var showError = false
     @State private var hovered = false
+
+    private var exportError: String? {
+        store.exportErrors[ExportRegistry.recordKey(for: item.url, folder: item.folder)]
+    }
 
     private var fileExists: Bool {
         guard let url = item.localFileURL else { return false }
@@ -49,14 +52,29 @@ struct TaskRow: View {
                         }
                     }.frame(height: 3).padding(.top, 3)
                 }
-                if showError {
+                if let exportError {
+                    Text(exportError).font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
+                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    Text("重试将保存到：\(store.destinationPath)")
+                        .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                }
+                if item.isFailed {
                     Text(item.error ?? item.msg ?? "视频源未返回可下载内容。可打开原网页确认链接是否可访问。")
                         .font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
                         .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
-            if let exportError = store.exportErrors[ExportRegistry.recordKey(for: item.url, folder: item.folder)] {
-                Button("重试保存") { Task { await store.retryExport(item) } }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.danger).help(exportError)
+            if exportError != nil {
+                VStack(alignment: .trailing, spacing: 10) {
+                    Button("重试保存") { Task { await store.retryExport(item) } }
+                    Button("选择文件夹并重试") {
+                        if FileActions.chooseFolder(store: store) {
+                            Task { await store.retryExport(item) }
+                        }
+                    }
+                }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
+                    .disabled(store.isSubmitting || store.exporting.contains(item.url))
             } else if store.exporting.contains(item.url) {
                 Text("保存中…").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             } else if item.isComplete {
@@ -65,7 +83,6 @@ struct TaskRow: View {
                     GlyphButton(symbol: "folder", title: "在 Finder 中显示") { FileActions.reveal(item) }.disabled(!fileExists)
                 }
             } else if item.isFailed {
-                GlyphButton(symbol: "info.circle", title: "查看失败原因") { showError.toggle() }
                 GlyphButton(symbol: "arrow.clockwise", title: "重试下载") { Task { await store.retry(item) } }
             } else if pending {
                 GlyphButton(symbol: "play.fill", title: "开始下载") { Task { await store.startPending(item) } }

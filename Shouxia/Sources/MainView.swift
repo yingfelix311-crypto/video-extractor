@@ -246,7 +246,7 @@ struct EngineSettings:View {
             Button(updater.isUpdating ? "正在检查…" : "立即检查更新") { Task { await store.checkUpdates() } }.buttonStyle(SoftButtonStyle(primary:true)).disabled(updater.isUpdating || store.isSubmitting)
             Divider()
             DestinationControl(store:store)
-            Text("自选目录的文件会在下载完成后保存。中转文件留在 Downloads/MeTube；已有任务保持原来的保存位置。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+            Text("自选目录的文件会在下载完成后保存。中转文件留在 Downloads/MeTube；已有任务自动保存到原位置，手动重试保存使用当前选择的文件夹。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             Button("打开运行日志") { FileActions.openLog() }.buttonStyle(.plain).font(TypeStyle.body(12))
         }.padding(26).frame(width:480).foregroundStyle(Ink.dark).background(Ink.paper)
     }
