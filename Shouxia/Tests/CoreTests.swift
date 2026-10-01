@@ -1,0 +1,70 @@
+import Foundation
+
+@main struct CoreTests {
+    static func main() async throws {
+        func check(_ condition: @autoclosure () -> Bool, _ message: String) { precondition(condition(), message) }
+        check(try! LinkParser.extract("复制这条 https://v.douyin.com/AbC123/ 打开抖音") == "https://v.douyin.com/AbC123/", "share text")
+        check(try! LinkParser.extract("https://youtu.be/abc。") == "https://youtu.be/abc", "trailing punctuation")
+        for text in ["hello", "file:///tmp/a", "https:///missing", "http://localhost/test", "http://127.0.0.1", "http://192.168.0.1", "http://[::1]/", "https://a.com https://b.com"] {
+            check((try? LinkParser.extract(text)) == nil, "must reject \(text)")
+        }
+        let videoBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "480", audioOnly: false)) as! [String: Any]
+        check(videoBody["quality"] as? String == "480", "480p must be preserved")
+        check(videoBody["format"] as? String == "mp4", "video format")
+        for url in ["https://media.w3.org/2010/05/sintel/trailer.mp4", "https://example.com/movie.WEBM?token=abc", "https://example.com/file.mov", "https://example.com/file.m4v"] {
+            let directBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: url, quality: "1080", audioOnly: false)) as! [String: Any]
+            check(directBody["quality"] as? String == "best", "direct file retains source quality")
+            check(directBody["format"] as? String == "any", "direct file retains source container")
+        }
+        let audioBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "480", audioOnly: true)) as! [String: Any]
+        check(audioBody["quality"] as? String == "best", "audio quality must match server schema")
+        check(audioBody["format"] as? String == "mp3", "audio format")
+        check(audioBody["ytdl_options_overrides"] == nil, "audio keeps server selector")
+        let directAudio = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://example.com/movie.webm", quality: "480", audioOnly: true)) as! [String: Any]
+        check(directAudio["format"] as? String == "mp3", "direct audio still converts to MP3")
+        let raw = #"{"done":[{"id":"a","title":"Title","url":"https://youtu.be/a","status":"finished","percent":100,"size":123,"filename":"a.mp4"}],"queue":[],"pending":[]}"#.data(using: .utf8)!
+        let history = try JSONDecoder().decode(History.self, from: raw)
+        let item = history.done.first!
+        check(item.id == item.url, "UI identity must use URL rather than extractor id")
+        for action in DownloadAction.allCases {
+            let request = try ActionRequest(action, item: item)
+            let body = try JSONSerialization.jsonObject(with: request.body) as! [String: Any]
+            if action == .retry {
+                check(body["id"] as? String == item.url, "retry identifies item by URL")
+                check(request.route == "retry", "retry endpoint")
+            } else {
+                check(body["ids"] as? [String] == [item.url], "actions identify items by URL")
+            }
+            if action == .clear || action == .cancel {
+                check(body["delete_files"] as? Bool == false, "actions must preserve files")
+                check(body["where"] as? String == (action == .clear ? "done" : "queue"), "correct queue")
+            }
+        }
+        check(history.done.first!.isComplete, "complete status")
+        check(history.done.first!.size == 123, "integer bytes")
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data().write(to: root.appendingPathComponent("valid.mp4"))
+        let outside = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString)
+        try Data().write(to: outside)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("escape"), withDestinationURL: outside)
+        check(SafeDownloadPath.resolve(filename: "valid.mp4", folder: nil, root: root) != nil, "valid file")
+        let nested = root.appendingPathComponent("custom/playlist")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try Data().write(to: nested.appendingPathComponent("track.mp4"))
+        check(SafeDownloadPath.resolve(filename: "playlist/track.mp4", folder: "custom", root: root)?.path == nested.appendingPathComponent("track.mp4").path, "filename is relative to selected folder")
+        check(SafeDownloadPath.resolve(filename: "../" + outside.lastPathComponent, folder: nil, root: root) == nil, "traversal")
+        check(SafeDownloadPath.resolve(filename: "/etc/passwd", folder: nil, root: root) == nil, "absolute path")
+        check(SafeDownloadPath.resolve(filename: "escape", folder: nil, root: root) == nil, "symlink escape")
+        check(SafeDownloadPath.resolve(filename: "missing.mp4", folder: nil, root: root) == nil, "missing file")
+        check((try? APIResult.validate(Data(#"{"status":"error","msg":"failed"}"#.utf8))) == nil, "API errors")
+        try APIResult.validate(Data(#"{"status":"ok"}"#.utf8))
+        if CommandLine.arguments.contains("--live") {
+            let live = try await Backend().history()
+            print("Live history decoded: \(live.done.count) done, \(live.queue.count) active, \(live.pending.count) pending")
+        }
+        print("PASS: link, history, path, API result tests")
+    }
+}
