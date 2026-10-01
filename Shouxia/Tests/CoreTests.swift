@@ -11,6 +11,8 @@ import Foundation
         let videoBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "480", audioOnly: false)) as! [String: Any]
         check(videoBody["quality"] as? String == "480", "480p must be preserved")
         check(videoBody["format"] as? String == "mp4", "video format")
+        let tagged = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "720", audioOnly: false, folder: "VideoExtractor/test-token")) as! [String: Any]
+        check(tagged["folder"] as? String == "VideoExtractor/test-token", "server folder preserves destination identity across URL canonicalization")
         for url in ["https://media.w3.org/2010/05/sintel/trailer.mp4", "https://example.com/movie.WEBM?token=abc", "https://example.com/file.mov", "https://example.com/file.m4v"] {
             let directBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: url, quality: "1080", audioOnly: false)) as! [String: Any]
             check(directBody["quality"] as? String == "best", "direct file retains source quality")
@@ -59,6 +61,18 @@ import Foundation
         check(SafeDownloadPath.resolve(filename: "/etc/passwd", folder: nil, root: root) == nil, "absolute path")
         check(SafeDownloadPath.resolve(filename: "escape", folder: nil, root: root) == nil, "symlink escape")
         check(SafeDownloadPath.resolve(filename: "missing.mp4", folder: nil, root: root) == nil, "missing file")
+        let destination = root.appendingPathComponent("export-target")
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let source = root.appendingPathComponent("valid.mp4")
+        try Data("original-video".utf8).write(to: source)
+        try Data("existing-user-file".utf8).write(to: destination.appendingPathComponent("valid.mp4"))
+        let copied = try ExportFiles.copy(source, into: destination)
+        check(copied.lastPathComponent == "valid (1).mp4", "export must not overwrite existing file")
+        check(try! Data(contentsOf: destination.appendingPathComponent("valid.mp4")) == Data("existing-user-file".utf8), "existing file preserved")
+        check(try! Data(contentsOf: copied) == Data(contentsOf: source), "copy bytes identical")
+        check(FileManager.default.fileExists(atPath: source.path), "staging source retained")
+        check(try! ExportFiles.copy(source, into: root) == source, "same directory avoids duplicate copy")
+        check((try? ExportFiles.copy(source, into: root.appendingPathComponent("missing-directory"))) == nil, "missing destination does not silently fall back")
         check((try? APIResult.validate(Data(#"{"status":"error","msg":"failed"}"#.utf8))) == nil, "API errors")
         try APIResult.validate(Data(#"{"status":"ok"}"#.utf8))
         if CommandLine.arguments.contains("--live") {

@@ -28,6 +28,7 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
     var isFailed: Bool { status == "error" }
     var localFileURL: URL? {
         guard isComplete, let filename else { return nil }
+        if let exported = ExportRegistry.file(for: url, folder: folder) { return exported }
         return SafeDownloadPath.resolve(filename: filename, folder: folder)
     }
     var platform: String {
@@ -88,10 +89,12 @@ struct APIResult: Decodable {
 
 
 enum DownloadRequest {
-    static func body(url: String, quality: String, audioOnly: Bool) throws -> Data {
+    static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil) throws -> Data {
         let isDirectMedia = ["mp4", "webm", "mov", "m4v"].contains(URL(string: url)?.pathExtension.lowercased() ?? "")
         let selectedQuality = !isDirectMedia && ["1080", "720", "480", "best"].contains(quality) ? quality : "best"
-        return try JSONSerialization.data(withJSONObject: ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : (isDirectMedia ? "any" : "mp4"), "auto_start": true, "playlist_item_limit": 1])
+        var payload: [String: Any] = ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : (isDirectMedia ? "any" : "mp4"), "auto_start": true, "playlist_item_limit": 1]
+        if let folder { payload["folder"] = folder }
+        return try JSONSerialization.data(withJSONObject: payload)
     }
 }
 

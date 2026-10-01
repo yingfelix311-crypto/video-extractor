@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>收下</string>
-<key>CFBundleDisplayName</key><string>收下</string>
+<key>CFBundleName</key><string>Video Extractor</string>
+<key>CFBundleDisplayName</key><string>Video Extractor</string>
 <key>CFBundleIdentifier</key><string>local.felix.shouxia</string>
 <key>CFBundleExecutable</key><string>Shouxia</string>
 <key>CFBundlePackageType</key><string>APPL</string>

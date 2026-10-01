@@ -1,26 +1,20 @@
 import AppKit
-let output = CommandLine.arguments[1]
-try FileManager.default.createDirectory(atPath: output, withIntermediateDirectories: true)
-for size in [16,32,128,256,512] {
-    for scale in [1,2] {
+// Usage: swift MakeIcon.swift Mascot.png output.iconset
+let source = URL(fileURLWithPath: CommandLine.arguments[1])
+let output = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+guard let artwork = NSImage(contentsOf: source) else { fatalError("Cannot load icon artwork") }
+try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+for size in [16, 32, 128, 256, 512] {
+    for scale in [1, 2] {
         let pixels = size * scale
-        let image = NSImage(size: NSSize(width: pixels, height: pixels))
-        image.lockFocus()
-        let factor = CGFloat(pixels) / 1024
-        let transform = NSAffineTransform()
-        transform.scale(by: factor)
-        transform.concat()
-        NSColor(calibratedRed: 0.065, green: 0.12, blue: 0.10, alpha: 1).setFill()
-        NSBezierPath(roundedRect: NSRect(x: 70, y: 70, width: 884, height: 884), xRadius: 200, yRadius: 200).fill()
-        NSColor(calibratedRed: 0.69, green: 0.94, blue: 0.68, alpha: 1).setStroke()
-        let arrow = NSBezierPath()
-        arrow.lineWidth = 66; arrow.lineCapStyle = .round; arrow.lineJoinStyle = .round
-        arrow.move(to: NSPoint(x: 512,y: 730)); arrow.line(to: NSPoint(x: 512,y: 363))
-        arrow.move(to: NSPoint(x: 355,y: 505)); arrow.line(to: NSPoint(x: 512,y: 348)); arrow.line(to: NSPoint(x: 669,y: 505))
-        arrow.move(to: NSPoint(x: 325,y: 275)); arrow.line(to: NSPoint(x: 699,y: 275)); arrow.stroke()
-        image.unlockFocus()
-        let rep = NSBitmapImageRep(data: image.tiffRepresentation!)!
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        let rect = NSRect(x: 0, y: 0, width: pixels, height: pixels)
+        NSBezierPath(roundedRect: rect, xRadius: CGFloat(pixels) * 0.22, yRadius: CGFloat(pixels) * 0.22).addClip()
+        artwork.draw(in: rect, from: .zero, operation: .copy, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
         let suffix = scale == 2 ? "@2x" : ""
-        try rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(output)/icon_\(size)x\(size)\(suffix).png"))
+        try rep.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("icon_\(size)x\(size)\(suffix).png"))
     }
 }

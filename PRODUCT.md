@@ -24,3 +24,7 @@ Existing download: Shiro｜GOLDEN NAME｜Music Video.mp4, 360p, 135.58 seconds, 
 
 ## Open Decisions
 First working build installed at ~/Applications/收下.app. Window and menu-bar quick entry; closing the window keeps the app running. Quitting the app leaves the MeTube backend running. This build reuses the local Colima environment; portable distribution and per-platform login flows remain future work.
+
+## 2026-10-01 user correction
+
+Product display name is Video Extractor. User explicitly rejected the original name, green arrow icon, and first UI as unattractive. Three generated design previews are under consideration; do not treat the old green visual identity as approved. Chinese UI remains, English product name.

@@ -1,0 +1,76 @@
+{
+  "checked_at": "2026-10-01",
+  "method": "Docker colima-metube; yt-dlp --simulate --skip-download --no-playlist --socket-timeout 12 --retries 0 --extractor-retries 0; subprocess 40-45s strict timeout; no cookies/login/downloads",
+  "candidates": [
+    {
+      "platform": "YouTube",
+      "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "title": "Me at the zoo",
+      "duration_seconds": 19,
+      "source": "Known creator public sample; live yt-dlp simulation confirmed",
+      "status": "metadata_ok"
+    },
+    {
+      "platform": "Bilibili",
+      "url": "https://www.bilibili.com/video/BV1bK411W797?p=1",
+      "title": "物语中的人物是如何吐槽自己的OP的 p01 Staple Stable/战场原+羽川",
+      "duration_seconds": 90.314,
+      "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/bilibili.py",
+      "status": "metadata_ok",
+      "note": "URL explicitly selects p1; enforce --no-playlist. Contains anime excerpt rather than original creator footage."
+    },
+    {
+      "platform": "Douyin",
+      "url": "https://www.douyin.com/video/7463360693522255138",
+      "title": "嘿嘿嘿小猫咪全身上下都好美味呢",
+      "duration_seconds": null,
+      "source": "Public indexed Douyin page (旖旖小虎)",
+      "status": "cookies_required",
+      "evidence": "ERROR: Fresh cookies (not necessarily logged in) are needed"
+    },
+    {
+      "platform": "X",
+      "url": "https://twitter.com/BrooklynNets/status/1349794411333394432",
+      "title": "Brooklyn Nets - WATCH: Sean Marks' full media session after our acquisition of 8-time...",
+      "duration_seconds": 324.484,
+      "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/twitter.py",
+      "status": "metadata_ok",
+      "note": "Official NBA team. Longer than preferred 3min; proven native Twitter media sample."
+    },
+    {
+      "platform": "Instagram",
+      "url": "https://www.instagram.com/reel/DW7AKrtjQQl/",
+      "title": "Video by nasa",
+      "duration_seconds": null,
+      "source": "https://www.flickr.com/photos/semeion/55208310235/",
+      "status": "metadata_ok",
+      "note": "NASA Artemis II eclipse; simulation confirms creator nasa, duration unavailable."
+    },
+    {
+      "platform": "TikTok",
+      "url": "https://www.tiktok.com/@patroxofficial/video/6742501081818877190",
+      "title": "Tag 1 Friend reverse this Video and look what happens 🤩😱 @skyandtami ...",
+      "duration_seconds": 27,
+      "source": "https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/tiktok.py",
+      "status": "metadata_ok"
+    }
+  ],
+  "rejected": [
+    {
+      "url": "https://www.youtube.com/watch?v=BaW_jenozKc",
+      "reason": "This video is unavailable"
+    },
+    {
+      "url": "https://twitter.com/starwars/status/665052190608723968",
+      "reason": "amplify webpage HTTP 500 Domain Not Found"
+    },
+    {
+      "url": "https://twitter.com/BTNBrentYarina/status/705235433198714880",
+      "reason": "Unsupported URL https://snpy.tv/"
+    },
+    {
+      "url": "https://x.com/NASA/status/2041557036274475228",
+      "reason": "Resolves to embedded YouTube trailer F9C3tc-ws7M 63s; unsuitable to prove native X video"
+    }
+  ]
+}

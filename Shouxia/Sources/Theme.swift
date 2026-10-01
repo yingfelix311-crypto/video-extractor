@@ -1,52 +1,52 @@
 import SwiftUI
+import AppKit
+import CoreText
 
-// One palette across the main window, popover and interaction states.
 enum Ink {
-    static let dark = Color(red: 0.065, green: 0.12, blue: 0.10)
-    static let paper = Color(red: 0.95, green: 0.955, blue: 0.93)
-    static let surface = Color(red: 0.985, green: 0.988, blue: 0.975)
-    static let mint = Color(red: 0.69, green: 0.94, blue: 0.68)
-    static let muted = Color(red: 0.37, green: 0.41, blue: 0.37)
-    static let line = Color(red: 0.83, green: 0.85, blue: 0.81)
-    static let danger = Color(red: 0.69, green: 0.20, blue: 0.14)
+    static let paper = Color(red:20/255,green:21/255,blue:20/255)
+    static let dark = Color(red:240/255,green:240/255,blue:233/255)
+    static let surface = Color(red:32/255,green:34/255,blue:31/255)
+    static let mint = Color(red:173/255,green:207/255,blue:55/255)
+    static let purple = Color(red:76/255,green:42/255,blue:113/255)
+    static let muted = Color(red:166/255,green:169/255,blue:160/255)
+    static let line = Color(red:54/255,green:59/255,blue:47/255)
+    static let danger = Color(red:1,green:0.57,blue:0.48)
 }
-
+enum TypeStyle {
+    static func heading(_ size: CGFloat) -> Font { .custom("Sora-SemiBold", size:size) }
+    static func body(_ size: CGFloat = 13) -> Font { .custom("Manrope-Regular", size:size) }
+    static func medium(_ size: CGFloat = 13) -> Font { .custom("Manrope-Medium", size:size) }
+    static func register() {
+        guard let root = Bundle.main.resourceURL?.appendingPathComponent("Fonts"), let files = try? FileManager.default.contentsOfDirectory(at:root,includingPropertiesForKeys:nil) else { return }
+        for file in files where file.pathExtension == "ttf" { CTFontManagerRegisterFontsForURL(file as CFURL,.process,nil) }
+    }
+}
 struct SoftButtonStyle: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .foregroundStyle(primary ? Ink.dark : Ink.dark)
-            .background(primary ? Ink.mint : Ink.dark.opacity(configuration.isPressed ? 0.12 : 0.055))
-            .clipShape(RoundedRectangle(cornerRadius: 9))
+        configuration.label.font(TypeStyle.medium()).padding(.horizontal,16).padding(.vertical,11)
+            .foregroundStyle(primary ? Ink.paper : Ink.dark)
+            .background(primary ? Ink.mint : Ink.surface)
+            .clipShape(RoundedRectangle(cornerRadius:10))
             .opacity(!isEnabled ? 0.4 : (configuration.isPressed ? 0.75 : 1))
     }
 }
-
 struct GlyphButton: View {
-    let symbol: String
-    let title: String
-    var action: () -> Void
+    let symbol: String; let title: String; var action: () -> Void
     @State private var hovered = false
     var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 14, weight: .medium))
-                .frame(width: 30, height: 30)
-                .background(hovered ? Ink.dark.opacity(0.075) : .clear)
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-        }
-        .buttonStyle(.plain).help(title).accessibilityLabel(title)
-        .onHover { hovered = $0 }
+        Button(action:action) { Image(systemName:symbol).font(.system(size:13,weight:.medium)).frame(width:30,height:30).background(hovered ? Ink.surface : .clear).clipShape(RoundedRectangle(cornerRadius:8)) }
+            .buttonStyle(.plain).help(title).accessibilityLabel(title).onHover { hovered=$0 }
     }
 }
-
 struct ReceiveMark: View {
     var size: CGFloat = 40
     var body: some View {
-        Image(systemName: "arrow.down.to.line.compact")
-            .font(.system(size: size * 0.58, weight: .semibold))
-            .frame(width: size, height: size)
+        Group {
+            if let path = Bundle.main.path(forResource:"Mascot",ofType:"png"), let image = NSImage(contentsOfFile:path) {
+                Image(nsImage:image).resizable().interpolation(.high).scaledToFit()
+            } else { Image(systemName:"play.rectangle.fill").resizable().scaledToFit().padding(8) }
+        }.frame(width:size,height:size).clipShape(RoundedRectangle(cornerRadius:size*0.23))
     }
 }

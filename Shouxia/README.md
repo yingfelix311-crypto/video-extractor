@@ -1,18 +1,24 @@
-# 收下
+# Video Extractor
 
 为 Felix 制作的原生 macOS 影音下载工具。SwiftUI 主窗口与菜单栏共享任务，连接这台电脑已有的 MeTube 服务。
 
 ## 使用
 
-打开 `~/Applications/收下.app`，也可以双击桌面的「收下」。首次连接会自动启动现有下载服务。
+打开 `~/Applications/Video Extractor.app`，也可以双击桌面的「Video Extractor」。首次连接会自动启动现有下载服务。
 
 1. 粘贴视频网址或包含一个网址的分享文字，也可拖入链接。
-2. 选择视频清晰度或 MP3 音频，点击「收下」或按 ⌘↩。
+2. 选择视频清晰度或 MP3 音频，点击「提取」或按 ⌘↩。
 3. 查看实际下载进度；完成后打开文件、在 Finder 中显示，或把文件拖出。
 
-文件保存到 `~/Downloads/MeTube`。关闭窗口后菜单栏入口仍可使用；退出应用不会停止后台下载。需要释放后台资源时，使用桌面 `MeTube视频下载/停止MeTube.command`。
+点击「保存到 / 更改」选择输出文件夹；提交时记录本次任务的保存位置，后续更改不会影响旧任务。下载缓存保留在 `~/Downloads/MeTube`。关闭窗口后菜单栏入口仍可使用；退出应用不会停止后台下载。需要释放后台资源时，使用桌面 `MeTube视频下载/停止MeTube.command`。
 
-支持范围由已安装 yt-dlp/MeTube 决定。YouTube、Bilibili、抖音、X 的具体链接可能受登录、地区、版权或平台变化影响；此版本没有账户 Cookie 导入界面，也未逐个平台验证。视频优先 MP4，音频转为 MP3；直链按原始画质保存。
+支持范围由已安装 yt-dlp/MeTube 决定。YouTube、Bilibili、抖音、X 的具体链接可能受登录、地区、版权或平台变化影响；此版本没有账户 Cookie 导入界面。2026-10-01 的六个平台实测中，YouTube、Bilibili、TikTok、X 样例成功，Instagram 样例无可下载格式，抖音样例要求新鲜 Cookie；这不代表整个平台的所有链接都能下载。视频优先 MP4，音频转为 MP3；直链按原始画质保存。
+
+## 快捷输入与引擎更新
+
+点击主界面小粽子或「快捷输入」，打开类似 Spotlight 的浮动输入框，自动聚焦，粘贴后点击提取即可；菜单栏也提供输入入口，没有注册全局快捷键。
+
+设置中默认开启自动更新。应用运行期间每天检查官方 PyPI 的 yt-dlp nightly，空闲时更新，下载队列或待处理任务存在时延后；失败后保留或恢复备份，并在界面显示状态。可以手动检查。退出应用后不检查，重新打开后继续。更新前验证依赖兼容性，不兼容时保留当前引擎。异常中断后根据本工具的事务记录恢复。MeTube 网页等外部客户端同时提交任务仍存在极小竞争窗口，维护时建议仅使用桌面应用。
 
 ## 本机环境
 
@@ -33,6 +39,6 @@ bash Shouxia/build.sh
 bash Shouxia/install.sh
 ```
 
-更新前先退出「收下」。构建输出为 `Shouxia/build/收下.app`，安装脚本复制到用户 Applications 并创建桌面入口。采用本机 ad-hoc 签名，未进行 Apple 公证。
+更新前先退出「Video Extractor」。构建输出为 `Shouxia/build/Video Extractor.app`，安装脚本复制到用户 Applications 并创建桌面入口。采用本机 ad-hoc 签名，未进行 Apple 公证。
 
 `Models.swift` 负责数据、分享链接解析和文件范围校验；`Backend.swift` 负责本机接口及运行时启动；`Store.swift` 管理状态；其他 Sources 文件提供原生界面。

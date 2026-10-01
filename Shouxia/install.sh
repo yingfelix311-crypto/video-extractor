@@ -2,9 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 bash build.sh
-DEST="$HOME/Applications/收下.app"
+DEST="$HOME/Applications/Video Extractor.app"
 mkdir -p "$HOME/Applications"
-ditto "build/收下.app" "$DEST"
+ditto "build/Video Extractor.app" "$DEST"
 codesign --verify --deep --strict "$DEST"
-if [ ! -e "$HOME/Desktop/收下.app" ]; then ln -s "$DEST" "$HOME/Desktop/收下.app"; fi
+if [ ! -e "$HOME/Desktop/Video Extractor.app" ]; then ln -s "$DEST" "$HOME/Desktop/Video Extractor.app"; fi
 printf 'Installed: %s\n' "$DEST"
