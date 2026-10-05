@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="480" viewBox="0 0 1200 480" role="img" aria-labelledby="title desc">
+<title id="title">Video Extractor — 把喜欢的片段，带回来。</title>
+<desc id="desc">深色背景、紫色与黄绿色的项目封面。下方用双节点时间线示意片段截取。</desc>
+<rect width="1200" height="480" rx="24" fill="#141514"/>
+<rect x="48" y="48" width="54" height="54" rx="15" fill="#4c2a71"/>
+<path d="M70 62l20 13-20 13z" fill="#adcf37"/>
+<g font-family="Sora,Manrope,-apple-system,BlinkMacSystemFont,Arial,sans-serif">
+<text x="120" y="83" fill="#f0f0e9" font-size="24" font-weight="600">Video Extractor</text>
+<text x="48" y="185" fill="#f0f0e9" font-size="54" font-weight="600">把喜欢的片段，带回来。</text>
+<text x="50" y="232" fill="#a6a9a0" font-size="21">下载视频与音频 · 拖动截取片段 · 按你的倍速导出</text>
+<rect x="940" y="55" width="210" height="34" rx="17" fill="#20221f"/>
+<text x="1045" y="78" text-anchor="middle" fill="#adcf37" font-size="14">NATIVE macOS · SwiftUI</text>
+<rect x="50" y="302" width="1100" height="68" rx="12" fill="#20221f"/>
+<rect x="295" y="303" width="595" height="66" rx="7" fill="#3d4724" stroke="#adcf37"/>
+<rect x="288" y="296" width="16" height="80" rx="5" fill="#adcf37"/>
+<rect x="882" y="296" width="16" height="80" rx="5" fill="#adcf37"/>
+<path d="M566 314v44" stroke="#f0f0e9" stroke-width="3"/>
+<text x="295" y="409" text-anchor="middle" fill="#adcf37" font-size="14">开始</text>
+<text x="890" y="409" text-anchor="middle" fill="#adcf37" font-size="14">结束</text>
+<text x="590" y="341" text-anchor="middle" fill="#f0f0e9" font-size="17" dx="54">留下这一段</text>
+<text x="50" y="440" fill="#a6a9a0" font-size="12">EXTRACT → TRIM → EXPORT</text>
+<text x="1150" y="440" text-anchor="end" fill="#a6a9a0" font-size="12">功能示意 / Feature illustration</text>
+</g></svg>

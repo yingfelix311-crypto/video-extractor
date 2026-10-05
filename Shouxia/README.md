@@ -14,6 +14,10 @@
 
 支持范围由已安装 yt-dlp/MeTube 决定。YouTube、Bilibili、抖音、X 的具体链接可能受登录、地区、版权或平台变化影响；此版本没有账户 Cookie 导入界面。2026-10-01 的六个平台实测中，YouTube、Bilibili、TikTok、X 样例成功，Instagram 样例无可下载格式，抖音样例要求新鲜 Cookie；这不代表整个平台的所有链接都能下载。视频优先 MP4，音频转为 MP3；直链按原始画质保存。
 
+## 截取片段
+
+已完成的视频点击剪刀按钮，或从「文件 → 截取本地视频…」（⇧⌘K）选择本地视频。拖动时间线的「开始」「结束」节点选择高亮片段，点击轨道定位画面；播放／暂停共用一个随状态变化的按钮，也可输入时间微调；点击「预览片段」核对后导出新的 MP4。默认选取前 10 秒，不会自动导出。播放按钮旁可选择常用倍速或输入 0.25–2 倍自定义速度，预览和导出都使用当前倍速；导出时长为选中时长除以倍速，画面与音频同步变速。支持取消、错误提示和在 Finder 中显示结果，原文件不会被覆盖。第一版每次导出一个片段，使用系统 AVFoundation 在本机处理；长片段和高分辨率导出仍会消耗计算资源。
+
 ## 快捷输入与引擎更新
 
 点击主界面小粽子或「快捷输入」，打开类似 Spotlight 的浮动输入框，自动聚焦，粘贴后点击提取即可；菜单栏也提供输入入口，没有注册全局快捷键。
@@ -36,6 +40,9 @@
 ```sh
 bash Shouxia/test.sh --live
 bash Shouxia/test-store.sh
+bash Shouxia/test-clips.sh # 可追加一个带音轨的视频路径，验证 1.5 秒短片导出
+bash Shouxia/test-clip-timeline.sh
+bash Shouxia/test-update.sh
 bash Shouxia/build.sh
 bash Shouxia/install.sh
 ```

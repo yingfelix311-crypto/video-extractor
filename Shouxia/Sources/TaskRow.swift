@@ -79,6 +79,9 @@ struct TaskRow: View {
                 Text("保存中…").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             } else if item.isComplete {
                 HStack(spacing: 2) {
+                    if !item.isAudio {
+                        GlyphButton(symbol: "scissors", title: "截取片段") { ClipWindow.shared.show(item.localFileURL) }
+                    }
                     GlyphButton(symbol: "play.fill", title: "打开文件") { FileActions.open(item) }.disabled(!fileExists)
                     GlyphButton(symbol: "folder", title: "在 Finder 中显示") { FileActions.reveal(item) }.disabled(!fileExists)
                 }
@@ -95,6 +98,9 @@ struct TaskRow: View {
             Menu {
                 if let url = URL(string: item.url), ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
                     Button("打开原网页") { NSWorkspace.shared.open(url) }
+                }
+                if item.isComplete && !item.isAudio {
+                    Button("截取片段…") { ClipWindow.shared.show(item.localFileURL) }
                 }
                 Button("复制原链接") {
                     NSPasteboard.general.clearContents()

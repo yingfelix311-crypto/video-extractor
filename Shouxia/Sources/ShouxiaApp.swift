@@ -63,6 +63,8 @@ struct ShouxiaApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(replacing: .newItem) {
+                Button("截取本地视频…") { ClipWindow.shared.choose() }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
                 Button("快捷输入") { QuickWindow.shared.show(store: store) }
                 Button("打开下载文件夹") { FileActions.revealFolder(store.destinationPath) }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
