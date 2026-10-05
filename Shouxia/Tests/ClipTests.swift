@@ -50,7 +50,7 @@ import AVFoundation
    let task = Task { try await service.export(source: source, target: cancelledTarget, range: range) }
    await Task.yield()
    service.cancel()
-   do { try await task.value; preconditionFailure("expected cancellation") } catch is CancellationError {} 
+   do { try await task.value; preconditionFailure("expected cancellation") } catch is CancellationError {}
    precondition(!FileManager.default.fileExists(atPath: cancelledTarget.path))
    precondition(try! FileManager.default.contentsOfDirectory(atPath: directory.path) == ["clip.mp4"])
    print("PASS: short export, audio/video, original preserved, no overwrite, cancellation cleanup; elapsed \(Date().timeIntervalSince(began))s")
