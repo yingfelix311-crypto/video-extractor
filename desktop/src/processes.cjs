@@ -3,7 +3,7 @@ function start(executable,args,onLine=()=>{},options={}){
  const child=spawn(executable,args,{windowsHide:true,shell:false,detached:process.platform!=='win32',env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},...options});
  let stderr='';let cancelled=false;
  for(const [stream,isError] of [[child.stdout,false],[child.stderr,true]]){
-  let buffer=''; stream?.on('data',chunk=>{buffer+=chunk.toString();if(isError)stderr=(stderr+chunk.toString()).slice(-12000);let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i).replace(/\r$/,'');buffer=buffer.slice(i+1);onLine(line,isError);}});
+  let buffer=''; stream?.setEncoding('utf8');stream?.on('data',chunk=>{buffer+=chunk.toString();if(isError)stderr=(stderr+chunk.toString()).slice(-12000);let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i).replace(/\r$/,'');buffer=buffer.slice(i+1);onLine(line,isError);}});
   stream?.on('end',()=>{if(buffer)onLine(buffer,isError);});
  }
  const promise=new Promise((resolve,reject)=>{

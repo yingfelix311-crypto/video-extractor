@@ -36,6 +36,6 @@ npm run package:mac
 npm run package:win
 ```
 
-`engines` 从固定版本的官方 yt-dlp release 和 eugeneware/ffmpeg-static release 获取对应平台工具，yt-dlp 验证官方 SHA-256，记录三个工具的 SHA-256。许可证随包提供。`smoke` 使用临时的 3 秒低分辨率合成视频，验证 4 个倍速、音轨、原文件保留、防覆盖、取消和删除后的重新加载；不下载测试视频，结束清理合成数据。
+`engines` 从固定版本的官方 yt-dlp release 和 eugeneware/ffmpeg-static release 获取对应平台工具，yt-dlp 验证官方 SHA-256，记录三个工具的 SHA-256。许可证随包提供。`smoke` 使用临时的 3 秒低分辨率合成视频，验证 4 个倍速、音轨、原文件保留、防覆盖、取消和删除后的重新加载；通过仅在回环地址运行的测试服务器验证实际视频和 MP3 下载，覆盖 CP936 环境下的中文目录与文件名；不访问外部视频网站，结束清理合成数据。
 
 产物在 `desktop/dist`。源码、构建工作流可提交，`node_modules`、下载引擎及安装包不提交 Git。GitHub Actions 保存构建产物 30 天；发布到 Releases 应使用固定版本、校验和及明确的测试状态。

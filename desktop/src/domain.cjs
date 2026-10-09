@@ -12,7 +12,7 @@ function parseLink(text){
  return u.href;
 }
 function downloadArgs(job,tools){
- const args=['--ignore-config','--no-playlist','--no-overwrites','--newline','--no-colors','--no-cache-dir','--socket-timeout','20','--retries','2','--concurrent-fragments','2','--ffmpeg-location',tools.ffmpeg,'--js-runtimes',`node:${tools.runtime}`,'--paths',job.folder,'--output','%(title).180B [%(id)s].%(ext)s','--progress-template','download:PROGRESS:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s','--print','before_dl:TITLE:%(title)s','--print','after_move:FILE:%(filepath)s'];
+ const args=['--ignore-config','--encoding','utf-8','--no-playlist','--no-overwrites','--newline','--no-colors','--no-cache-dir','--socket-timeout','20','--retries','2','--concurrent-fragments','2','--ffmpeg-location',tools.ffmpeg,'--js-runtimes',`node:${tools.runtime}`,'--paths',job.folder,'--output','%(title).180B [%(id)s].%(ext)s','--progress-template','download:PROGRESS:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s','--print','before_dl:TITLE:%(title)s','--print','after_move:FILE:%(filepath)s'];
  if(job.audio) args.push('-x','--audio-format','mp3','--audio-quality','0');
  else{
   const direct=/\.(mp4|webm|mov|m4v)(\?|$)/i.test(job.url);

@@ -1,9 +1,10 @@
 const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');const {capture,start}=require('./processes.cjs');const {Service,fileIdentity}=require('./service.cjs');
 async function run({app,service,tools}){
  const dir=path.join(app.getPath('userData'),'fixtures');fs.mkdirSync(dir,{recursive:true});const fixture=path.join(dir,'test-source.mp4');
- const versions=await capture(tools.ytdlp,['--version']);assert.ok(versions.trim());
+ const versions=await capture(tools.ytdlp,['--version'],60000);assert.ok(versions.trim());
  const runtime=await capture(tools.runtime,['--version']);assert.match(runtime,/v\d+\./);
  await capture(tools.ffmpeg,['-hide_banner','-loglevel','error','-f','lavfi','-i','testsrc2=size=160x90:rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','3','-c:v','libx264','-threads','1','-c:a','aac','-y',fixture]);
+ await require('./download-smoke.cjs').downloadSmoke({dir,fixture,tools});
  const original=fs.readFileSync(fixture);const media=await service.inspect(fixture);assert.ok(media.duration>=2.9);assert.ok(media.hasAudio);
  for(const speed of [.5,1,1.35,2]){
   const target=path.join(dir,`speed-${speed}.mp4`);await service.exportClip(media,target,{start:1,end:2.5,speed});const output=await service.inspect(target);assert.ok(Math.abs(output.duration-1.5/speed)<.15);assert.ok(output.hasAudio);

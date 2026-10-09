@@ -1,6 +1,6 @@
 {
   "name": "video-extractor-desktop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Video and audio downloads, clip selection and speed-aware export",
   "author": "Video Extractor contributors",

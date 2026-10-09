@@ -21,3 +21,6 @@ test('removed records stay removed across reload and interrupted tasks never res
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'video-extractor-state-')); const file=path.join(dir,'state.json');
  try {saveState(file,{destination:dir,jobs:[{id:'a',status:'downloading'},{id:'b',status:'finished'}]}); const state=loadState(file); assert.equal(state.jobs[0].status,'interrupted'); state.jobs=[];saveState(file,state);assert.deepEqual(loadState(file).jobs,[]);} finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('download protocol explicitly emits UTF-8 on every Windows locale',()=>{
+ const args=downloadArgs({url:'https://example.com/v.mp4',folder:'/tmp/stage',quality:480},{ffmpeg:'/tmp/ffmpeg',runtime:process.execPath});assert.equal(args[args.indexOf('--encoding')+1],'utf-8');
+});
