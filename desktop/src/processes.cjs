@@ -1,6 +1,6 @@
 const {spawn}=require('node:child_process');
 function start(executable,args,onLine=()=>{},options={}){
- const child=spawn(executable,args,{windowsHide:true,shell:false,env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},...options});
+ const child=spawn(executable,args,{windowsHide:true,shell:false,detached:process.platform!=='win32',env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},...options});
  let stderr='';let cancelled=false;
  for(const [stream,isError] of [[child.stdout,false],[child.stderr,true]]){
   let buffer=''; stream?.on('data',chunk=>{buffer+=chunk.toString();if(isError)stderr=(stderr+chunk.toString()).slice(-12000);let i;while((i=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,i).replace(/\r$/,'');buffer=buffer.slice(i+1);onLine(line,isError);}});
@@ -11,7 +11,7 @@ function start(executable,args,onLine=()=>{},options={}){
  });
  function cancel(){if(child.exitCode!==null)return;cancelled=true;
   if(process.platform==='win32')spawn('taskkill',['/pid',String(child.pid),'/T','/F'],{windowsHide:true,shell:false});
-  else{child.kill('SIGTERM');const timer=setTimeout(()=>{if(child.exitCode===null)child.kill('SIGKILL');},1500);timer.unref();}
+  else{try{process.kill(-child.pid,'SIGTERM');}catch{}const timer=setTimeout(()=>{try{process.kill(-child.pid,'SIGKILL');}catch{}},1500);timer.unref();}
  }
  return {child,promise,cancel};
 }

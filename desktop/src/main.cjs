@@ -5,6 +5,8 @@ protocol.registerSchemesAsPrivileged([{scheme:'media',privileges:{standard:true,
 let win,service,lastExport;const media=new Map();
 if(process.argv.includes('--smoke-test'))app.setPath('userData',path.join(app.getPath('temp'),'video-extractor-smoke-'+crypto.randomUUID()));
 const root=app.isPackaged?path.join(process.resourcesPath,'engines'):path.join(__dirname,'..','engines',`${process.platform==='darwin'?'mac':'win'}-${process.arch}`);
+if(!app.requestSingleInstanceLock())app.exit(0);
+app.on('second-instance',()=>{if(win){if(win.isMinimized())win.restore();win.show();win.focus();}});
 const ext=process.platform==='win32'?'.exe':'';const tools={ytdlp:path.join(root,'yt-dlp'+ext),ffmpeg:path.join(root,'ffmpeg'+ext),ffprobe:path.join(root,'ffprobe'+ext),runtime:process.execPath};
 async function registerMedia(file){const inspected=await service.inspect(file);const token=crypto.randomUUID();media.clear();media.set(token,inspected);return {...inspected,file:undefined,token,url:`media://local/${token}`};}
 async function chooseVideo(){const result=await dialog.showOpenDialog(win,{title:'选择要截取的视频',properties:['openFile'],filters:[{name:'视频',extensions:['mp4','mov','m4v','webm','mkv','avi']}]});return result.canceled?null:registerMedia(result.filePaths[0]);}

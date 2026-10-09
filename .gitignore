@@ -12,3 +12,5 @@ Shouxia/.build/
 desktop/node_modules/
 desktop/dist/
 desktop/engines/
+
+releases/

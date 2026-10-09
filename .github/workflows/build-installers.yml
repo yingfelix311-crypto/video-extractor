@@ -34,6 +34,19 @@ jobs:
           $p = Start-Process -FilePath '.\dist\win-unpacked\Video Extractor.exe' -ArgumentList '--smoke-test' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Packaged self-test failed ($($p.ExitCode))" }
           Get-FileHash .\dist\*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ascii .\dist\SHA256SUMS.txt
+      - name: Verify Windows installation
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem .\dist\*.exe | Select-Object -First 1).FullName
+          $target = Join-Path $env:RUNNER_TEMP 'VideoExtractorInstalled'
+          $p = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$target") -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installation failed ($($p.ExitCode))" }
+          $p = Start-Process -FilePath (Join-Path $target 'Video Extractor.exe') -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installed self-test failed ($($p.ExitCode))" }
+          $uninstaller = Get-ChildItem $target -Filter '*Uninstall*.exe' | Select-Object -First 1
+          if (-not $uninstaller) { throw 'Uninstaller missing' }
+          $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Uninstall failed ($($p.ExitCode))" }
       - uses: actions/upload-artifact@v4
         with:
           name: Video-Extractor-Windows-x64

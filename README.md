@@ -14,6 +14,17 @@
   <a href="Shouxia/README.md">详细说明</a>
 </p>
 
+## macOS / Windows 独立安装版（测试版）
+
+新增 `desktop/` 独立客户端，安装包内置下载与剪辑引擎，无需配置 Docker、Python 或 MeTube。支持视频 / MP3 下载、双节点片段选择、0.25–2× 自定义倍速预览和导出。保留深色、紫色与黄绿色设计。
+
+- **Mac**：macOS 14 及以上，Apple Silicon（M1 / M2 / M3 / M4）。
+- **Windows**：Windows 10 / 11，x64。
+- 当前为尚未公证、没有开发者证书的测试包，系统可能限制首次启动。构建产物位于 GitHub Actions，尚未发布公开 Release。
+- [安装与构建说明](desktop/README.md) · [安装包构建记录](https://github.com/yingfelix311-crypto/video-extractor/actions/workflows/build-installers.yml)
+
+以下介绍包含原 SwiftUI 客户端功能；菜单栏入口、快捷输入框与引擎自动升级目前仅在原客户端提供。
+
 ## 功能
 
 | 从这里开始 | 你可以做什么 |
