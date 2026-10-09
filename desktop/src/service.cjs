@@ -1,13 +1,18 @@
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');
 const {parseLink,downloadArgs,clipArgs,validateClip,loadState,saveState}=require('./domain.cjs');const {start,capture}=require('./processes.cjs');
 function within(file,base){const relative=path.relative(path.resolve(base),path.resolve(file));return relative!==''&&!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative);}
+function fileIdentity(file){const s=fs.statSync(file);return {dev:s.dev,ino:s.ino,size:s.size,mtimeMs:s.mtimeMs,birthtimeMs:s.birthtimeMs};}
+function publishExclusive(source,target){
+ try{fs.linkSync(source,target);}catch(e){if(!['EXDEV','ENOTSUP','EOPNOTSUPP','EPERM'].includes(e.code))throw e;fs.copyFileSync(source,target,fs.constants.COPYFILE_EXCL);}
+ fs.unlinkSync(source);
+}
 function publishFile(source,destination){
  if(!fs.existsSync(source))throw new Error('处理引擎未生成文件。');
- // Hard-link creation is atomic and cannot replace an existing file. Temp/output are on the same volume.
+ // Both hard links and exclusive copy refuse to replace an existing file.
  const ext=path.extname(source),stem=path.basename(source,ext);let target;
  for(let i=0;i<10000;i++){
   target=path.join(destination,stem+(i?` (${i})`:'')+ext);
-  try{fs.linkSync(source,target);fs.unlinkSync(source);return target;}catch(e){if(e.code==='EEXIST')continue;throw e;}
+  try{publishExclusive(source,target);return target;}catch(e){if(e.code==='EEXIST')continue;throw e;}
  }
  throw new Error('同名文件太多，请选择其他目录。');
 }
@@ -38,14 +43,14 @@ class Service{
     if(line.startsWith('PROGRESS:')){const values=line.slice(9).split('|');job.percent=Math.min(100,Math.max(0,parseFloat(values[0])||0));job.speed=values[1];job.eta=values[2];if(job.percent>=100)job.status='processing';this.progress();}
    });this.active.proc=proc;await proc.promise;
    if(!staged||!within(staged,job.folder))throw new Error('下载文件路径无效，请重试。');
-   job.file=publishFile(staged,job.destination);job.title=job.title==='正在读取视频信息…'?path.basename(job.file):job.title;job.status='finished';job.percent=100;
+   job.file=publishFile(staged,job.destination);job.fileIdentity=fileIdentity(job.file);job.title=job.title==='正在读取视频信息…'?path.basename(job.file):job.title;job.status='finished';job.percent=100;
   }catch(error){job.status=error.cancelled?'cancelled':'error';job.error=error.message;}
   finally{try{fs.rmSync(job.folder,{recursive:true,force:true});}catch{}this.active=null;this.persist();this.pump();}
  }
  cancel(id){const job=this.state.jobs.find(j=>j.id===id);if(!job)return;if(this.active?.id===id)this.active.proc?.cancel();else if(job.status==='queued'){job.status='cancelled';this.persist();}}
  retry(id){const job=this.state.jobs.find(j=>j.id===id);if(!job||!['error','cancelled','interrupted'].includes(job.status))throw new Error('该任务不需要重试。');job.destination=this.state.destination;job.folder=path.join(job.destination,`.video-extractor-${job.id}`);job.status='queued';job.error=null;job.percent=0;this.persist();this.pump();}
  remove(id,deleteFile=false){const job=this.state.jobs.find(j=>j.id===id);if(!job)throw new Error('找不到记录。');if(['queued','downloading','processing'].includes(job.status))throw new Error('请先取消正在处理的任务。');
-  if(deleteFile&&job.file){try{fs.unlinkSync(job.file);}catch(e){if(e.code!=='ENOENT')throw new Error('删除文件失败：'+e.message);}}
+  if(deleteFile&&job.file){try{const current=fileIdentity(job.file);if(!job.fileIdentity||Object.keys(current).some(k=>current[k]!==job.fileIdentity[k]))throw new Error('文件已变化，无法确认这是原下载文件。请移除记录并在文件夹中手动处理。');fs.unlinkSync(job.file);}catch(e){if(e.code!=='ENOENT')throw new Error('删除文件失败：'+e.message);}}
   // Clear state only after file removal succeeds. No scans/import on startup.
   this.state.jobs=this.state.jobs.filter(j=>j.id!==id);this.persist();
  }
@@ -60,9 +65,9 @@ class Service{
   const directory=path.dirname(target);const temporary=path.join(directory,`.video-extractor-clip-${crypto.randomUUID()}.mp4`);
   const proc=start(this.tools.ffmpeg,clipArgs({...clip,source:media.file,target:temporary,hasAudio:media.hasAudio}),(line)=>{if(line.startsWith('out_time_us='))onProgress(Math.min(1,Number(line.slice(12))/1e6/clip.outputDuration));});
   this.exporting=proc;this.onChange(this.snapshot());
-  try{await proc.promise;fs.linkSync(temporary,target);fs.unlinkSync(temporary);return target;}
+  try{await proc.promise;publishExclusive(temporary,target);return target;}
   finally{try{fs.rmSync(temporary,{force:true});}catch{}this.exporting=null;this.onChange(this.snapshot());}
  }
  stop(){this.stopping=true;this.active?.proc?.cancel();this.exporting?.cancel();}
 }
-module.exports={Service,publishFile,within};
+module.exports={Service,publishFile,publishExclusive,fileIdentity,within};
