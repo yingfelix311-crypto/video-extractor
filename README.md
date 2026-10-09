@@ -14,6 +14,20 @@
   <a href="Shouxia/README.md">详细说明</a>
 </p>
 
+## 下载 Mac 原版
+
+**[下载 Mac 原版安装包](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.0.0)** · **[安装与后台配置说明](docs/INSTALL-MAC.md)**
+
+| 版本 | 系统 | 状态 |
+| :--- | :--- | :--- |
+| Mac 原版 1.0.0 | Apple Silicon · macOS 14+ | 私有测试发行包，保留现有 SwiftUI / AVFoundation / MeTube 实现 |
+
+仓库保持私有，需使用拥有仓库读取权限的 GitHub 账号下载。请下载 Releases 中的 **Video-Extractor-Native-1.0.0-macOS-arm64.zip**，而不是 Source code ZIP。完整解压后使用「安装原版.command」准备原版后台环境。
+
+**当前只提供 Mac 原版，不提供 Windows 版。**此前独立 Electron 客户端已停用，不属于原版发行。此次没有替换界面、交互、下载参数或剪辑实现。
+
+安装包未 Apple 公证，首次安装需要联网。干净 Mac 的完整首次配置仍需真实环境验收，具体限制见安装说明。
+
 ## 功能
 
 | 从这里开始 | 你可以做什么 |
@@ -49,7 +63,7 @@
 - 下载功能依赖已经配置好的 **Colima / Docker / MeTube**：`metube` profile、`metube` 容器、`127.0.0.1:8081`，并挂载 `~/Downloads/MeTube` 到 `/downloads`。
 - 本地片段处理使用系统 **AVFoundation**，无需 AI 模型或上传视频。
 
-> 当前仓库提供原生客户端源码与本机构建脚本，尚未提供自动配置下载后端的通用安装包。片段导出消耗随视频分辨率和片段长度增加。
+> Releases 提供原版 App 与后台首次配置脚本；它仍是需要验收的私有测试发行包。普通使用不需要编译源码。片段导出消耗随视频分辨率和片段长度增加。
 
 ### 下载视频或音频
 
