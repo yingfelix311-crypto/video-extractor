@@ -8,3 +8,7 @@ Shouxia/.build/
 .env.*
 !.env.example
 *.log
+
+desktop/node_modules/
+desktop/dist/
+desktop/engines/
