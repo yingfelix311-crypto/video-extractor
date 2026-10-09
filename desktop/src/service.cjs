@@ -13,7 +13,7 @@ function publishFile(source,destination){
 }
 class Service{
  constructor({stateFile,defaultDestination,tools,onChange=()=>{}}){
-  this.stateFile=stateFile;this.tools=tools;this.onChange=onChange;this.active=null;this.exporting=null;this.lastSave=0;
+  this.stateFile=stateFile;this.tools=tools;this.onChange=onChange;this.active=null;this.exporting=null;this.lastSave=0;this.stopping=false;
   this.state=loadState(stateFile);this.state.destination??=defaultDestination;this.persist();
  }
  snapshot(){return {...this.state,engineReady:fs.existsSync(this.tools.ytdlp)&&fs.existsSync(this.tools.ffmpeg)&&fs.existsSync(this.tools.ffprobe),exporting:!!this.exporting,jobs:this.state.jobs.map(j=>({...j,fileExists:!!j.file&&fs.existsSync(j.file)}))};}
@@ -28,7 +28,7 @@ class Service{
   this.state.jobs.unshift(job);this.persist();this.pump();return job.id;
  }
  async pump(){
-  if(this.active)return;const job=this.state.jobs.slice().reverse().find(j=>j.status==='queued');if(!job)return;
+  if(this.stopping||this.active)return;const job=this.state.jobs.slice().reverse().find(j=>j.status==='queued');if(!job)return;
   this.active={id:job.id,proc:null};job.status='downloading';job.error=null;this.persist();let staged;
   try{
    fs.mkdirSync(job.folder,{recursive:true});
@@ -43,7 +43,7 @@ class Service{
   finally{try{fs.rmSync(job.folder,{recursive:true,force:true});}catch{}this.active=null;this.persist();this.pump();}
  }
  cancel(id){const job=this.state.jobs.find(j=>j.id===id);if(!job)return;if(this.active?.id===id)this.active.proc?.cancel();else if(job.status==='queued'){job.status='cancelled';this.persist();}}
- retry(id){const job=this.state.jobs.find(j=>j.id===id);if(!job||!['error','cancelled','interrupted'].includes(job.status))throw new Error('该任务不需要重试。');job.status='queued';job.error=null;job.percent=0;this.persist();this.pump();}
+ retry(id){const job=this.state.jobs.find(j=>j.id===id);if(!job||!['error','cancelled','interrupted'].includes(job.status))throw new Error('该任务不需要重试。');job.destination=this.state.destination;job.folder=path.join(job.destination,`.video-extractor-${job.id}`);job.status='queued';job.error=null;job.percent=0;this.persist();this.pump();}
  remove(id,deleteFile=false){const job=this.state.jobs.find(j=>j.id===id);if(!job)throw new Error('找不到记录。');if(['queued','downloading','processing'].includes(job.status))throw new Error('请先取消正在处理的任务。');
   if(deleteFile&&job.file){try{fs.unlinkSync(job.file);}catch(e){if(e.code!=='ENOENT')throw new Error('删除文件失败：'+e.message);}}
   // Clear state only after file removal succeeds. No scans/import on startup.
@@ -63,6 +63,6 @@ class Service{
   try{await proc.promise;fs.linkSync(temporary,target);fs.unlinkSync(temporary);return target;}
   finally{try{fs.rmSync(temporary,{force:true});}catch{}this.exporting=null;this.onChange(this.snapshot());}
  }
- stop(){this.active?.proc?.cancel();this.exporting?.cancel();}
+ stop(){this.stopping=true;this.active?.proc?.cancel();this.exporting?.cancel();}
 }
 module.exports={Service,publishFile,within};
