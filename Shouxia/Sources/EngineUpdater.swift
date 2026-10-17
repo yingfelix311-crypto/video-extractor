@@ -224,7 +224,7 @@ enum EngineCommand {
     static func run(arguments: [String], timeout: TimeInterval) async throws -> String {
         try await Task.detached(priority: .utility) {
             let process = Process()
-            process.executableURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/docker")
+            process.executableURL = URL(fileURLWithPath:try LocalRuntimeExecutable.resolve("docker"))
             process.arguments = ["--context", "colima-metube"] + arguments
             let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             FileManager.default.createFile(atPath: url.path, contents: nil)

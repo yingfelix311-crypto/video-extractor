@@ -7,7 +7,7 @@ struct MainView: View {
     @ObservedObject var updater: EngineUpdater
     @Environment(\.openWindow) private var openWindow
     @State private var input = ""
-    @AppStorage("downloadQuality") private var quality = "1080"
+    @AppStorage("downloadQuality") private var quality = "best"
     @AppStorage("downloadAudioOnly") private var audioOnly = false
     @State private var dragOver = false
     @State private var filter = "全部"
@@ -30,6 +30,11 @@ struct MainView: View {
                 HStack(spacing:12) {
                     Image(systemName:"link").foregroundStyle(Ink.muted)
                     TextField("粘贴视频链接",text:$input).textFieldStyle(.plain).font(TypeStyle.body(15)).focused($inputFocused).onSubmit(submit).accessibilityLabel("视频链接")
+                    if !input.isEmpty {
+                        Button { input=""; inputFocused=true } label: {
+                            Image(systemName:"xmark.circle.fill").frame(width:24,height:24).contentShape(Rectangle())
+                        }.buttonStyle(.plain).foregroundStyle(Ink.muted).help("清空视频链接").accessibilityLabel("清空视频链接")
+                    }
                     Button("粘贴") { input=NSPasteboard.general.string(forType:.string) ?? ""; inputFocused=true }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                 }.padding(.horizontal,16).frame(height:58).background(Ink.surface).clipShape(RoundedRectangle(cornerRadius:12))
                     .overlay(RoundedRectangle(cornerRadius:12).stroke(dragOver ? Ink.mint : Ink.line,lineWidth:1))
@@ -42,6 +47,7 @@ struct MainView: View {
                 QualityControl(quality:$quality).disabled(audioOnly)
                 Button(audioOnly ? "MP3" : (store.options.videoFormat == "mp4" ? "MP4 源格式" : "原始最佳格式")) { store.showSettings=true }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.muted).accessibilityLabel("设置下载格式")
                 Spacer()
+                Button("快速上手") { store.showSettings=false; store.showQuickStart=true }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                 Button("快捷输入") { QuickWindow.shared.show(store:store) }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             }.padding(.top,14)
             DestinationControl(store:store).padding(.top,15).padding(.bottom,23)
@@ -112,6 +118,9 @@ struct MainView: View {
         }.padding(.horizontal,32).foregroundStyle(Ink.dark).background(Ink.paper)
             .frame(minWidth:860,minHeight:710)
             .sheet(isPresented:$store.showSettings) { EngineSettings(store:store,updater:updater) }
+            .sheet(isPresented:$store.showQuickStart,onDismiss:{
+                if store.quickStartOpenSettings {store.quickStartOpenSettings=false;store.showSettings=true}
+            }) { QuickStartView(store:store,updater:updater) }
             .onAppear { inputFocused=true }
             .onChange(of: audioOnly) { _, _ in selectedHistory.removeAll() }
             .onChange(of: filter) { _, _ in selectedHistory.removeAll() }
@@ -191,17 +200,23 @@ struct QuickPanel:View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
     @State private var input=""
-    @AppStorage("downloadQuality") private var quality="1080"
+    @AppStorage("downloadQuality") private var quality="best"
     @AppStorage("downloadAudioOnly") private var audioOnly=false
     @FocusState private var focused:Bool
     init(store:DownloadStore) { self.store=store; self.updater=store.updater }
     var body:some View {
         VStack(alignment:.leading,spacing:12) {
             HStack(spacing:8) {
-                TextField("粘贴视频链接",text:$input)
-                    .textFieldStyle(.plain).font(TypeStyle.body(13)).focused($focused)
-                    .onSubmit(submit).accessibilityLabel("快捷视频链接")
-                    .padding(.horizontal,12).frame(height:38)
+                HStack(spacing:8) {
+                    TextField("粘贴视频链接",text:$input)
+                        .textFieldStyle(.plain).font(TypeStyle.body(13)).focused($focused)
+                        .onSubmit(submit).accessibilityLabel("快捷视频链接")
+                    if !input.isEmpty {
+                        Button { input=""; focused=true } label: {
+                            Image(systemName:"xmark.circle.fill").frame(width:24,height:24).contentShape(Rectangle())
+                        }.buttonStyle(.plain).foregroundStyle(Ink.muted).help("清空视频链接").accessibilityLabel("清空快捷视频链接")
+                    }
+                }.padding(.horizontal,12).frame(height:38)
                     .background(Ink.surface).clipShape(RoundedRectangle(cornerRadius:10))
                 Button(action:submit) {
                     Image(systemName:store.isSubmitting ? "hourglass" : "arrow.up.right").frame(width:12,height:16)

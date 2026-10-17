@@ -94,6 +94,15 @@ import Darwin
   let expired=SessionCookie(domain:"youtube.com",name:"old",value:"x",path:"/",expires:50,secure:false)
   let foreign=SessionCookie(domain:"evil.test",name:"other",value:"x",path:"/",expires:0,secure:false)
   let jar=String(decoding:try BrowserCookieJar.netscape([live,expired,foreign],scope:scope,now:100),as:UTF8.self)
+  let nameless=SessionCookie(domain:".youtube.com",name:"",value:"guest-only",path:"/",expires:0,secure:true)
+  let namelessJar=String(decoding:try BrowserCookieJar.netscape([nameless],scope:scope,now:100),as:UTF8.self)
+  precondition(namelessJar.contains("\t0\t\tguest-only\n"),"Netscape supports nameless browser cookies without changing their value")
+  do {
+   _ = try BrowserCookieJar.netscape([SessionCookie(domain:".youtube.com",name:"safe",value:"private-fixture\nvalue",path:"/",expires:0,secure:true)],scope:scope,now:100)
+   fatalError("control characters must be rejected")
+  } catch {
+   precondition(error.localizedDescription.contains("value") && !error.localizedDescription.contains("private-fixture"),"diagnostic identifies only the field/rule, never the value")
+  }
   precondition(jar.contains("#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t2000000000\tsid\tfixture") && !jar.contains("old") && !jar.contains("evil.test"))
   let emptyJar = try BrowserCookieJar.netscape([],scope:scope,now:100)
   precondition(String(decoding:emptyJar,as:UTF8.self).hasPrefix("# Netscape HTTP Cookie File"))

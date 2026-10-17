@@ -25,6 +25,8 @@ enum ConnectionState: Equatable {
     @Published var submittingURL: String?
     @Published var notice: String?
     @Published var showSettings = false
+    @Published var showQuickStart = false
+    @Published var quickStartOpenSettings = false
     @Published private(set) var isConfiguring = false
     @Published private(set) var hasCookies: Bool?
     @Published private(set) var serviceVersion = "未检查"
@@ -35,7 +37,7 @@ enum ConnectionState: Equatable {
         didSet {if let data=try? JSONEncoder().encode(browserCookies) {defaults.set(data,forKey:"browserCookiePreferencesV1")}}
     }
     @Published private(set) var browserProfiles:[BrowserProfile]=[]
-    @Published private(set) var browserCookieStatus="尚未读取浏览器登录状态。"
+    @Published private(set) var browserCookieStatus="尚未读取浏览器网站会话；账号登录未验证。"
     @Published private(set) var browserLoginURL=URL(string:"https://www.douyin.com/")!
     @Published private(set) var isLoadingBrowserProfiles=false
     @Published private(set) var runtimeRecoveryPending = false
@@ -165,7 +167,7 @@ enum ConnectionState: Equatable {
         }
     }
 
-    func submit(_ text: String, quality: String, audioOnly: Bool, options selectedOptions: DownloadOptions? = nil, destination: String? = nil) async -> Bool {
+    func submit(_ text: String, quality: String, audioOnly: Bool, options selectedOptions: DownloadOptions? = nil, destination: String? = nil, useBrowserSession: Bool? = nil) async -> Bool {
         guard !isSubmitting else { return false }
         guard !isConfiguring else { message = "后台设置正在保存，请稍后提取。"; return false }
         guard !reconnecting else {message="下载服务正在连接，请稍后提取。";return false}
@@ -177,7 +179,7 @@ enum ConnectionState: Equatable {
             let link = try LinkParser.resolve(text)
             let url = link.canonicalURL
             let requestOptions = try (selectedOptions ?? options).validated()
-            let syncCookies=browserCookies.enabled && CookieScope.forURL(url) != nil
+            let syncCookies=browserCookies.enabled && (useBrowserSession ?? true) && CookieScope.forURL(url) != nil
             guard !syncCookies || networkEnabled else {message="请在 Cookie 设置中保存浏览器选择，启用后台自动同步支持。";showSettings=true;return false}
             guard requestOptions.ytdlOverrides.isEmpty || networkEnabled else { message="请先在设置中启用并保存网络参数。";showSettings=true;return false }
             guard !submissions.contains(where: { $0.link.canonicalURL == url && $0.state != .failed }),
@@ -193,7 +195,7 @@ enum ConnectionState: Equatable {
             cancellationRequested = false
             lastAcceptedURL = nil
             submissions.removeAll { $0.link.canonicalURL == url && $0.state == .failed }
-            submissions.append(SubmissionIntent(id:taskFolder,link:link,quality:quality,audioOnly:audioOnly,options:requestOptions,destination:selectedDestination,createdAt:Date(),state:syncCookies ? .syncing : .parsing))
+            submissions.append(SubmissionIntent(id:taskFolder,link:link,quality:quality,audioOnly:audioOnly,options:requestOptions,destination:selectedDestination,createdAt:Date(),state:syncCookies ? .syncing : .parsing,browserSessionRequested:useBrowserSession))
             defer { isSubmitting = false; submittingURL = nil; submissionTask=nil;cookieSyncTask=nil }
             // Persist intent before the request: a timeout or app exit must not lose
             // the destination of a task the server already accepted.
@@ -202,8 +204,8 @@ enum ConnectionState: Equatable {
             ExportRegistry.records = records
             exportErrors[taskFolder] = nil
             var cookieFile:String?
+            if let domain=CookieScope.forURL(url)?.domains.first,let inspectionURL=URL(string:"https://"+domain+"/") {browserLoginURL=inspectionURL}
             if syncCookies {
-                if let domain=CookieScope.forURL(url)?.domains.first,let loginURL=URL(string:"https://"+domain+"/") {browserLoginURL=loginURL}
                 let preferences=browserCookies
                 let sync=BrowserSessionSync(reader:cookieReader,files:cookieFiles)
                 let cookieTask=Task<String?,Error> {
@@ -227,6 +229,8 @@ enum ConnectionState: Equatable {
                     await cookieFiles.discard(taskID:taskFolder);submissions.removeAll {$0.id==taskFolder};return false
                 }
                 setSubmission(taskFolder,state:.parsing)
+            } else {
+                browserCookieStatus="本次未读取浏览器网站会话；已导入的手动会话文件（如有）仍可能使用。账号登录未验证。"
             }
             let body=try DownloadRequest.body(url:url,quality:quality,audioOnly:audioOnly,folder:taskFolder,options:requestOptions,cookieFile:cookieFile)
             let task=Task { try await backend.post("add",body:body) }
@@ -280,7 +284,11 @@ enum ConnectionState: Equatable {
     }
     func retrySubmission(_ intent: SubmissionIntent) async {
         guard intent.state == .failed else { return }
-        _ = await submit(intent.link.originalURL,quality:intent.quality,audioOnly:intent.audioOnly,options:intent.options,destination:intent.destination)
+        _ = await submit(intent.link.originalURL,quality:intent.quality,audioOnly:intent.audioOnly,options:intent.options,destination:intent.destination,useBrowserSession:intent.browserSessionRequested == false ? false : nil)
+    }
+    func retrySubmissionWithoutBrowser(_ intent:SubmissionIntent) async {
+        guard intent.state == .failed else {return}
+        _ = await submit(intent.link.originalURL,quality:intent.quality,audioOnly:intent.audioOnly,options:intent.options,destination:intent.destination,useBrowserSession:false)
     }
     func dismissSubmission(_ id:String) {
         submissions.removeAll { $0.id==id && $0.state == .failed }
@@ -394,10 +402,21 @@ enum ConnectionState: Equatable {
                 try await RuntimeSupport.validateCookieMount()
             }
             browserCookies=candidate
-            browserCookieStatus=candidate.enabled ? "已开启：下次提交支持的平台链接时，从 \(candidate.browser.title) 同步 Cookie。首次可能出现系统授权提示。" : "自动读取已关闭；手动导入的 Cookie 文件仍可使用。"
-            settingsMessage="浏览器 Cookie 设置已保存。"
+            browserCookieStatus=candidate.enabled ? "已开启：下次从 \(candidate.browser.title) 读取对应网站会话，首次可能出现系统授权。设置保存不代表账号已登录。" : "浏览器读取已关闭；手动导入的会话文件（如有）仍可使用。"
+            settingsMessage="网站会话来源已保存；账号登录未验证。"
             return true
         } catch {settingsMessage=error.localizedDescription;return false}
+    }
+    func checkBrowserAccess() async {
+        guard canConfigure else {settingsMessage="请先完成任务或后台维护，再检查读取权限。";return}
+        guard browserCookies.enabled else {settingsMessage="请先选择浏览器并主动开启、保存网站会话读取。";return}
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {
+            let sync=BrowserSessionSync(reader:cookieReader,files:cookieFiles)
+            browserCookieStatus=try await sync.inspect(preferences:browserCookies,url:browserLoginURL.absoluteString)
+            settingsMessage="本机读取检查完成。未向网站发起登录验证，也未创建下载任务。"
+        } catch {browserCookieStatus=error.localizedDescription;settingsMessage=error.localizedDescription}
     }
     func clearIdleBrowserCookies() async {
         guard canConfigure else {settingsMessage="请先完成任务或核对未决提交，再清理会话文件。";return}

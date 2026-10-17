@@ -58,7 +58,10 @@ struct DownloadFailure: Sendable, Equatable {
         if text.contains("无法读取 safari cookie"),text.contains("完全磁盘访问权限") {
             return .init(kind:.cookies,title:"Safari 访问权限不足",message:"macOS 尚未允许本应用读取 Safari Cookie。请为 Video Extractor 开启完全磁盘访问权限，退出并重新打开软件后重试。",actionTitle:"管理 Cookie")
         }
-        if has(["cookie", "sign in", "login required", "log in", "登录", "浏览器配置", "浏览器会话", "钥匙串"]) { return .init(kind: .cookies, title: "需要有效 Cookie", message: "请在所选浏览器配置中登录网站，检查自动同步及系统授权后重试；也可关闭自动同步，手动导入自己的 Netscape Cookie 文件。", actionTitle: "管理 Cookie") }
+        if text.contains("fresh cookies") {
+            return .init(kind:.unknown,title:"暂未取得视频信息",message:"下载引擎未取得视频数据；这条通用报错不能确认需要登录或浏览器授权。可先重试或检查引擎兼容性。",actionTitle:"重试")
+        }
+        if has(["cookie", "sign in", "login required", "log in", "登录", "浏览器配置", "浏览器会话", "网站会话", "钥匙串"]) { return .init(kind: .cookies, title: "网站会话或读取遇到问题", message: "此提示不能证明账号未登录。请查看原始原因：本机读取失败可本次跳过；网站明确要求登录时再到所选浏览器登录，解析方式也可能需要适配。", actionTitle: "检查网站会话") }
         if has(["requested format", "format is not available", "no video formats", "格式不可用"]) { return .init(kind: .format, title: "所选格式不可用", message: "尝试原始最佳格式或降低清晰度。", actionTitle: "调整参数") }
         if has(["permission denied", "operation not permitted", "read-only file", "权限"]) { return .init(kind: .permission, title: "无法写入文件", message: "请重新选择可写入的保存目录。", actionTitle: "选择目录") }
         if has(["127.0.0.1:8081", "localhost:8081", "下载服务", "backend offline", "backend is offline", "metube offline", "metube is offline"]) { return .init(kind: .service, title: "下载服务不可用", message: "请检查设置中的后台依赖和服务状态。", actionTitle: "检查服务") }

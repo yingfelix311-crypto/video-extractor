@@ -26,8 +26,8 @@ struct SubmissionRow:View {
     private var stopping:Bool { [.cancellingCookies,.cancelling].contains(intent.state) }
     private var title:String {
         switch intent.state {
-        case .syncing: return "正在同步浏览器 Cookie…"
-        case .cancellingCookies: return "正在停止 Cookie 同步…"
+        case .syncing: return "正在读取浏览器网站会话…"
+        case .cancellingCookies: return "正在停止会话读取…"
         case .parsing: return "正在解析链接…"
         case .cancelling: return "正在停止并核对…"
         case .uncertain: return "提交结果尚未确认"
@@ -41,7 +41,7 @@ struct SubmissionRow:View {
             else { Image(systemName:"exclamationmark.circle").foregroundStyle(Ink.danger).frame(width:46,height:46) }
             VStack(alignment:.leading,spacing:7) {
                 Text(title).font(TypeStyle.medium(13))
-                if intent.state == .syncing || intent.state == .cancellingCookies { Text("仅读取当前平台的 Cookie，尚未提交下载。").foregroundStyle(Ink.muted) }
+                if intent.state == .syncing || intent.state == .cancellingCookies { Text("仅读取当前网站的会话信息，尚未提交下载；不代表账号已登录。").foregroundStyle(Ink.muted) }
                 Text(intent.summary).foregroundStyle(Ink.muted)
                 Text(intent.link.originalURL).lineLimit(2).textSelection(.enabled)
                 if intent.link.wasNormalized { Text("已转换为：\(intent.link.canonicalURL)").foregroundStyle(Ink.muted).textSelection(.enabled) }
@@ -51,6 +51,9 @@ struct SubmissionRow:View {
             if intent.state == .failed {
                 VStack(spacing:12) {
                     Button("重试") { Task { await store.retrySubmission(intent) } }.accessibilityLabel("重试失败的提交").disabled(store.isSubmitting || store.isConfiguring)
+                    if store.browserCookies.enabled, intent.browserSessionRequested != false, DownloadFailure.classify(intent.error ?? "").kind == .cookies {
+                        Button("本次不读取浏览器重试") {Task {await store.retrySubmissionWithoutBrowser(intent)}}.accessibilityLabel("本次不读取浏览器信息并重试").disabled(store.isSubmitting || store.isConfiguring)
+                    }
                     Button("移除") { store.dismissSubmission(intent.id) }.accessibilityLabel("移除失败的提交")
                 }.buttonStyle(.plain).foregroundStyle(Ink.mint)
             } else {

@@ -36,6 +36,7 @@ actor SessionBackendFixture:BackendServing {
     func finish() {done=queue;queue=[]}
     func last()->[String:String] {requests.last?["ytdl_options_overrides"] as? [String:String] ?? [:]}
     func count()->Int {requests.count}
+    func lastPayload()->[String:Any] {requests.last ?? [:]}
     func markUnknown() {unknown=true}
     func respondWith(_ data:Data) {addResponse=data}
     func cookieStatus() async throws -> Bool {false}
@@ -53,6 +54,8 @@ actor SessionBackendFixture:BackendServing {
         defer {try? fm.removeItem(at:root)}
         let files=TaskCookieFiles(downloadRoot:root,verifyRuntime:{})
         let scope=CookieScope.forURL("https://www.douyin.com/video/42")!
+        let nameless=SessionCookie(domain:".douyin.com",name:"",value:"guest-only",path:"/",expires:0,secure:true)
+        try CookieFile.validate(BrowserCookieJar.netscape([nameless],scope:scope))
         let cookies=[SessionCookie(domain:".douyin.com",name:"fixture",value:"local-test",path:"/",expires:0,secure:true)]
         let id="VideoExtractor/"+UUID().uuidString
         let path=try await files.prepare(cookies,scope:scope,taskID:id)!
@@ -92,6 +95,11 @@ actor SessionBackendFixture:BackendServing {
         store.connection = .ready;store.networkEnabled=true
         expect(await store.submit("https://www.douyin.com/video/1",quality:"best",audioOnly:false),"disabled reading preserves downloads")
         expect(await reader.count()==0,"disabled means zero reads")
+        store.browserCookies=BrowserCookiePreferences(enabled:false,browser:.chrome,profile:"Default")
+        store.networkEnabled=false
+        expect(await store.submit("https://www.douyin.com/video/100",quality:"best",audioOnly:false,useBrowserSession:true),"task hint cannot enable browser access without saved consent")
+        expect(await reader.count()==0,"saved opt-out always takes precedence over a task hint")
+        store.networkEnabled=true
         defaults.set(try JSONEncoder().encode(BrowserCookiePreferences(enabled:true,browser:.chrome,profile:"Default")),forKey:"browserCookiePreferencesV1")
         let enabled=DownloadStore(backend:backend,defaults:defaults,cookieReader:reader,cookieFiles:files)
         enabled.connection = .ready;enabled.networkEnabled=true
@@ -100,6 +108,7 @@ actor SessionBackendFixture:BackendServing {
         expect(await enabled.submit("https://www.douyin.com/video/2",quality:"best",audioOnly:false),"enabled auto sync adds task")
         let opts=await backend.last();expect(opts["cookiefile"]?.hasPrefix("/downloads/.video-extractor-sessions/")==true,"per-task cookie path")
         expect(await reader.count()==1,"one fresh read")
+        expect(enabled.browserCookieStatus.contains("账号登录未验证"),"reading guest cookies never claims account login")
         await reader.configure(empty:true)
         expect(await enabled.submit("https://www.douyin.com/video/3",quality:"best",audioOnly:false),"missing cookies allows public access")
         expect(await backend.last()["cookiefile"]==nil,"missing cookies never reuses old automatic file")
@@ -143,6 +152,39 @@ actor SessionBackendFixture:BackendServing {
         let unknownFile=root.appendingPathComponent(String(unknownPath.dropFirst("/downloads/".count)))
         await enabled.refresh()
         expect(fm.fileExists(atPath:unknownFile.path),"uncertain server result retains required cookie file")
+
+        let bypassSuite="BrowserSession.Bypass."+UUID().uuidString
+        let bypassDefaults=UserDefaults(suiteName:bypassSuite)!
+        defer {bypassDefaults.removePersistentDomain(forName:bypassSuite)}
+        let bypassPreferences=BrowserCookiePreferences(enabled:true,browser:.chrome,profile:"Default")
+        bypassDefaults.set(try JSONEncoder().encode(bypassPreferences),forKey:"browserCookiePreferencesV1")
+        let bypassRoot=root.appendingPathComponent("bypass")
+        try fm.createDirectory(at:bypassRoot,withIntermediateDirectories:true)
+        let bypassBackend=SessionBackendFixture(),bypassReader=SessionReaderFixture()
+        let bypassFiles=TaskCookieFiles(downloadRoot:bypassRoot,verifyRuntime:{})
+        let bypassStore=DownloadStore(backend:bypassBackend,defaults:bypassDefaults,cookieReader:bypassReader,cookieFiles:bypassFiles)
+        bypassStore.connection = .ready;bypassStore.networkEnabled=true
+        await bypassReader.configure(fails:true)
+        let requestOptions=DownloadOptions(videoFormat:"mp4",referer:"https://www.douyin.com/")
+        let requestDestination=bypassRoot.path
+        expect(!(await bypassStore.submit("https://www.douyin.com/video/99",quality:"720",audioOnly:false,options:requestOptions,destination:requestDestination)),"local read failure stays explicit")
+        let failed=bypassStore.submissions.first!
+        let readsBeforeBypass=await bypassReader.count()
+        await bypassStore.retrySubmissionWithoutBrowser(failed)
+        expect(await bypassReader.count()==readsBeforeBypass,"one-task bypass must not touch browser credentials")
+        expect(await bypassBackend.count()==1,"bypass submits exactly once")
+        expect(bypassStore.browserCookies==bypassPreferences,"bypass does not change persistent consent or selected browser")
+        let bypassPayload=await bypassBackend.lastPayload()
+        expect((bypassPayload["ytdl_options_overrides"] as? [String:String])?["cookiefile"]==nil,"bypass does not reuse an automatic jar")
+        expect((bypassPayload["ytdl_options_overrides"] as? [String:String])?["referer"]==requestOptions.referer,"bypass preserves explicit network options")
+        let bypassFolder=bypassPayload["folder"] as! String
+        expect(ExportRegistry.records[bypassFolder]?.destination==requestDestination,"bypass preserves destination")
+        expect(ExportRegistry.records[bypassFolder]?.quality=="720","bypass preserves quality")
+        expect(bypassStore.browserCookieStatus.contains("手动") && bypassStore.browserCookieStatus.contains("账号登录未验证"),"bypass cannot claim no cookies or verified login")
+        await bypassReader.configure()
+        let inspection=try await BrowserSessionSync(reader:bypassReader,files:bypassFiles).inspect(preferences:bypassPreferences,url:"https://www.douyin.com/video/99")
+        expect(inspection.contains("账号登录未验证"),"local inspection never validates a remote account")
+        expect(!fm.fileExists(atPath:bypassFiles.directory.path),"local inspection must not create credential files")
         print("PASS: isolated private cookies, domain gating, persisted consent, cancellation, restart and uncertain result retention")
     }
 }

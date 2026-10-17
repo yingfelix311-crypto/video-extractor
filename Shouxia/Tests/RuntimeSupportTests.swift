@@ -1,6 +1,28 @@
 import Foundation
 @main struct RuntimeSupportTests {
  static func main() async throws {
+  let fixture=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+  defer { try? FileManager.default.removeItem(at:fixture) }
+  let local=fixture.appendingPathComponent(".local/bin"),brew=fixture.appendingPathComponent("brew/bin"),intel=fixture.appendingPathComponent("intel/bin")
+  for directory in [local,brew,intel] { try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true) }
+  func executable(_ directory:URL,_ mode:Int) throws {
+   let file=directory.appendingPathComponent("docker")
+   try Data("#!/bin/sh\nexit 0\n".utf8).write(to:file)
+   try FileManager.default.setAttributes([.posixPermissions:mode],ofItemAtPath:file.path)
+  }
+  try executable(brew,0o755);try executable(intel,0o755)
+  let resolved1=try LocalRuntimeExecutable.resolve("docker",home:fixture,searchDirectories:[brew,intel])
+  precondition(resolved1 == brew.appendingPathComponent("docker").path,"Homebrew fallback order")
+  try executable(local,0o755)
+  let resolved2=try LocalRuntimeExecutable.resolve("docker",home:fixture,searchDirectories:[brew,intel])
+  precondition(resolved2 == local.appendingPathComponent("docker").path,"local executable takes priority")
+  try executable(local,0o644)
+  let resolved3=try LocalRuntimeExecutable.resolve("docker",home:fixture,searchDirectories:[brew,intel])
+  precondition(resolved3 == brew.appendingPathComponent("docker").path,"nonexecutable local file must be skipped")
+  try FileManager.default.removeItem(at:brew.appendingPathComponent("docker"))
+  let resolved4=try LocalRuntimeExecutable.resolve("docker",home:fixture,searchDirectories:[brew,intel])
+  precondition(resolved4 == intel.appendingPathComponent("docker").path,"Intel Homebrew fallback")
+  do { _ = try LocalRuntimeExecutable.resolve("colima",home:fixture,searchDirectories:[brew,intel]);fatalError("missing executable accepted") } catch {}
   let output=try await RuntimeSupport.raw("/bin/echo",["fixture"],timeout:2)
   precondition(String(decoding:output,as:UTF8.self)=="fixture\n","real child-process completion must not deadlock")
   do {_ = try await RuntimeSupport.raw("/bin/sleep",["10"],timeout:0.1);fatalError("unbounded subprocess") }catch{}

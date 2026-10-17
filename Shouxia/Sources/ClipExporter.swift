@@ -36,7 +36,7 @@ struct ClipRange {
     private var cancelled = false
     var progress: Double { Double(session?.progress ?? 0) }
     func cancel() { cancelled = true; session?.cancelExport() }
-    func export(source: URL, target: URL, range: ClipRange, speed: Double = 1) async throws {
+    func export(source: URL, target: URL, range: ClipRange, speed: Double = 1, canvas: ClipCanvas = .source) async throws {
         guard speed.isFinite, (0.25...2).contains(speed) else { throw AppError.message("导出倍速必须在 0.25 到 2 之间。") }
         guard !Self.busy else { throw AppError.message("已有片段正在导出，请等待完成。") }
         Self.busy = true; cancelled = false
@@ -64,6 +64,26 @@ struct ClipRange {
         guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality), export.supportedFileTypes.contains(.mp4) else {
             throw AppError.message("此视频暂不支持导出为 MP4，请选择其他视频。")
         }
+        if canvas != .source, let sourceTrack = sourceTracks.first, let outputTrack = outputTracks.first {
+            let geometry = ClipGeometry(naturalSize: try await sourceTrack.load(.naturalSize), preferredTransform: try await sourceTrack.load(.preferredTransform))
+            guard geometry.isValid else { throw AppError.message("无法读取视频尺寸。") }
+            let size = canvas.size(for: geometry)
+            // The layer transform owns orientation; the composition track must not apply it twice.
+            outputTrack.preferredTransform = .identity
+            let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: outputTrack)
+            layer.setTransform(geometry.fitTransform(in: size), at: .zero)
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: .zero, duration: outputDuration)
+            instruction.backgroundColor = CGColor(gray: 0, alpha: 1)
+            instruction.layerInstructions = [layer]
+            let videoComposition = AVMutableVideoComposition()
+            videoComposition.renderSize = size
+            let fps = try await sourceTrack.load(.nominalFrameRate)
+            videoComposition.frameDuration = CMTime(seconds: 1 / Double(fps.isFinite && fps > 0 ? min(fps, 120) : 30), preferredTimescale: 60000)
+            videoComposition.instructions = [instruction]
+            export.videoComposition = videoComposition
+        }
+        guard !cancelled else { throw CancellationError() }
         let temporary = target.deletingLastPathComponent().appendingPathComponent(".video-extractor-clip-\(UUID().uuidString).mp4")
         defer { try? fm.removeItem(at: temporary) }
         session = export

@@ -2,7 +2,6 @@ import Foundation
 
 /// Called only while downloads, cookie writes and engine updates are excluded by Store.
 enum RuntimeSupport {
-    private static let docker = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/docker").path
     private static var journalURL: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Shouxia/network-transaction.json") }
     static var recoveryRequired: Bool { FileManager.default.fileExists(atPath:journalURL.path) }
     private struct Journal: Codable { let original: String; let backup: String; let snapshot: String; let token: String }
@@ -60,7 +59,7 @@ enum RuntimeSupport {
         return commands
     }
     private static func command(_ args: [String], timeout: TimeInterval = 30) async throws -> Data {
-        try await raw(docker, ["--context", "colima-metube"] + args, timeout: timeout)
+        try await raw(LocalRuntimeExecutable.resolve("docker"), ["--context", "colima-metube"] + args, timeout: timeout)
     }
     /// File-backed output avoids deadlocks and the small maintenance runner's truncation.
     static func raw(_ executable: String, _ args: [String], timeout: TimeInterval) async throws -> Data {
@@ -168,10 +167,12 @@ enum RuntimeSupport {
         } else { try await rollback(journal) }
     }
     static func diagnostics() async throws -> String {
-        let fm = FileManager.default
-        var lines = ["Docker：" + (fm.isExecutableFile(atPath:docker) ? "已安装" : "未找到")]
-        let colima = fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/colima").path
-        lines.append("Colima：" + (fm.isExecutableFile(atPath:colima) || fm.isExecutableFile(atPath:"/opt/homebrew/bin/colima") ? "已安装" : "未找到"))
+        var lines = [String]()
+        for (name,label) in [("docker","Docker"),("colima","Colima")] {
+            if let path=try? LocalRuntimeExecutable.resolve(name) { lines.append(label + "：已找到 " + path) }
+            else { lines.append(label + "：未找到可执行程序") }
+        }
+        lines.append("运行前提：已配置 Colima metube profile、colima-metube Docker context 和 metube 容器；不会自动创建。")
         let script = "import json,subprocess,shutil; names=['ffmpeg','ffprobe','node','deno','python3']; out={n:(subprocess.run([n,'--version'] if n not in ['ffmpeg','ffprobe'] else [n,'-version'],capture_output=True,text=True,timeout=5).stdout.splitlines() or ['已安装'])[0][:180] if shutil.which(n) else '未安装' for n in names}; import yt_dlp.version; out['yt-dlp']=yt_dlp.version.__version__; print(json.dumps(out))"
         do {
             let data = try await command(["exec", "metube", "python3", "-c", script], timeout:40)

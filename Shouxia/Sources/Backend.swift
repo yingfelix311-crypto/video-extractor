@@ -1,5 +1,18 @@
 import Foundation
 
+enum LocalRuntimeExecutable {
+    static func resolve(_ name:String, home:URL=FileManager.default.homeDirectoryForCurrentUser, searchDirectories:[URL]?=nil) throws -> String {
+        guard ["docker","colima"].contains(name) else { throw AppError.message("不支持的后台程序：\(name)") }
+        let directories=[home.appendingPathComponent(".local/bin")] + (searchDirectories ?? [URL(fileURLWithPath:"/opt/homebrew/bin"),URL(fileURLWithPath:"/usr/local/bin")])
+        for directory in directories {
+            let path=directory.appendingPathComponent(name).path
+            var isDirectory:ObjCBool=false
+            if FileManager.default.fileExists(atPath:path,isDirectory:&isDirectory), !isDirectory.boolValue, FileManager.default.isExecutableFile(atPath:path) { return path }
+        }
+        throw AppError.message("未找到可执行的 \(name)；请检查本机后台依赖安装。")
+    }
+}
+
 protocol BackendServing: Sendable {
     func history() async throws -> History
     func post(_ route: String, body: Data) async throws
@@ -30,7 +43,7 @@ enum CookieFile {
             let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
             guard fields.count == 7, !fields[0].isEmpty, ["TRUE", "FALSE"].contains(String(fields[1])),
                   fields[2].hasPrefix("/"), ["TRUE", "FALSE"].contains(String(fields[3])),
-                  Int64(fields[4]) != nil, !fields[5].isEmpty else {
+                  Int64(fields[4]) != nil, (!fields[5].isEmpty || !fields[6].isEmpty) else {
                 throw AppError.message("Cookie 文件内容不完整，请按 Netscape 格式重新导出。")
             }
             count += 1
@@ -98,12 +111,10 @@ struct Backend: BackendServing, Sendable {
         try await startContainer()
     }
     static func startVirtualMachine() async throws {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        try await run(executable: home + "/.local/bin/colima", arguments: ["start", "--profile", "metube"], timeout: 75)
+        try await run(executable: LocalRuntimeExecutable.resolve("colima"), arguments: ["start", "--profile", "metube"], timeout: 75)
     }
     static func startContainer() async throws {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        try await run(executable: home + "/.local/bin/docker", arguments: ["--context", "colima-metube", "start", "metube"], timeout: 10)
+        try await run(executable: LocalRuntimeExecutable.resolve("docker"), arguments: ["--context", "colima-metube", "start", "metube"], timeout: 10)
     }
     private static func run(executable: String, arguments: [String], timeout: TimeInterval) async throws {
         try await Task.detached(priority: .utility) {

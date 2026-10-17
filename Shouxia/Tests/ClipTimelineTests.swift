@@ -4,6 +4,7 @@ import AVFoundation
 @main struct ClipTimelineTests {
     @MainActor static func main() throws {
         let model = ClipEditorModel(source: URL(fileURLWithPath: "/tmp/clip-timeline-test.mp4"))
+        precondition(model.canvas == .source, "new editor must default to actual source dimensions")
         precondition(model.setPlaybackSpeed(1.35))
         precondition(abs(model.playbackSpeed - 1.35) < 0.0001)
         for speed in [Double.nan, .infinity, 0, -1, 2.1] { precondition(!model.setPlaybackSpeed(speed)) }

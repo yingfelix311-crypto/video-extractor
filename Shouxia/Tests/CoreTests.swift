@@ -33,7 +33,7 @@ import Foundation
         let configured = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "best", audioOnly: false, options: options)) as! [String: Any]
         check(configured["format"] as? String == "mp4" && configured["ytdl_options_overrides"] != nil, "explicit format and network options")
         check(DownloadFailure.classify("Unsupported URL: https://www.douyin.com/jingxuan").kind == .unsupportedLink, "unsupported route separate")
-        check(DownloadFailure.classify("Fresh cookies are needed").kind == .cookies, "fresh cookie diagnosis")
+        check(DownloadFailure.classify("Fresh cookies are needed").kind == .unknown, "extractor wording alone cannot establish login or browser requirements")
         let safariAccess=DownloadFailure.classify("无法读取 Safari Cookie。请在系统设置 → 隐私与安全性 → 完全磁盘访问权限中允许本应用，重新打开应用后重试，或关闭自动读取。")
         check(safariAccess.title == "Safari 访问权限不足", "Safari OS denial must not be presented as expired login")
         check(safariAccess.message.contains("完全磁盘访问权限") && safariAccess.message.contains("重新打开"), "Safari failure explains permission and restart")
