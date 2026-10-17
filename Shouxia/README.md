@@ -79,4 +79,8 @@ bash Shouxia/install.sh
 
 支持抖音精选页链接规范化、手动 Cookie 管理、代理与请求头、原始最佳格式、修正后重试、解析取消与未决任务核对、独立失败筛选和快捷输入反馈。MP4 选项选择源格式，不代表转码。需要登录态的平台仍需有效 Cookie。
 
+本机构建使用 ad-hoc 签名。更新原生应用后，macOS 的旧隐私授权可能仍绑定旧二进制签名，出现“完全磁盘访问权限开关已打开，但 Safari Cookie 仍不可读”。此时需要用户在系统权限列表移除旧 Video Extractor 条目，重新添加当前 `/Users/felix/Applications/Video Extractor.app`，开启授权后完全退出并重新打开。只来回切换旧条目不能保证刷新签名绑定。正式分发应使用稳定的代码签名身份；当前机器没有可用代码签名证书，不通过弱化签名要求规避系统授权。
+
+抖音后端兼容插件：`bash Shouxia/install-backend-plugins.sh`。使用 yt-dlp 官方插件入口，在原接口返回 Fresh cookies 时，以当前任务的域名限定 Cookie 读取手机版分享页，严格匹配视频 ID，使用页面提供的播放地址；不复制登录 Cookie 到视频 CDN，不执行页面脚本。依赖当前已安装的 curl_cffi / Chrome Android 请求支持。安装后在队列空闲时重启 `metube` 容器加载；原生应用无需重新签名。插件源代码和测试位于 `BackendPlugins`，运行代码保存在下载卷 `.shouxia/yt-dlp-plugins`。应用的原地 yt-dlp 引擎升级保留插件；整体替换容器后需重跑安装脚本恢复标准插件目录链接。
+
 测试入口：`test.sh`、`test-backend.sh`、`test-runtime.sh`、`test-submissions.sh`、`test-store.sh`、`test-clips.sh`、`test-clip-timeline.sh`、`test-update.sh`。完整验证记录见 `docs/superpowers/specs/2026-10-18-short-video-validation.md`。
