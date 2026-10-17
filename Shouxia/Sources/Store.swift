@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 
 enum ConnectionState: Equatable {
     case connecting, starting, ready, offline
@@ -30,6 +31,13 @@ enum ConnectionState: Equatable {
     @Published var settingsMessage: String?
     @Published var diagnostics = "点击检查，查看后台和下载依赖状态。"
     @Published var networkEnabled = false
+    @Published var browserCookies:BrowserCookiePreferences {
+        didSet {if let data=try? JSONEncoder().encode(browserCookies) {defaults.set(data,forKey:"browserCookiePreferencesV1")}}
+    }
+    @Published private(set) var browserProfiles:[BrowserProfile]=[]
+    @Published private(set) var browserCookieStatus="尚未读取浏览器登录状态。"
+    @Published private(set) var browserLoginURL=URL(string:"https://www.douyin.com/")!
+    @Published private(set) var isLoadingBrowserProfiles=false
     @Published private(set) var runtimeRecoveryPending = false
     @Published var options: DownloadOptions {
         didSet { if let data=try? JSONEncoder().encode(options) { defaults.set(data,forKey:"downloadOptionsV2") } }
@@ -45,18 +53,25 @@ enum ConnectionState: Equatable {
     private let backend: any BackendServing
     private let defaults: UserDefaults
     private var submissionTask: Task<Void, Error>?
+    private var cookieSyncTask:Task<String?,Error>?
+    private let cookieReader:any BrowserCookieReading
+    private let cookieFiles:any TaskCookieServing
     private var cancellationRequested = false
     private var lastAcceptedURL: String?
     private var polling: Task<Void, Never>?
     private var reconnecting = false
     private var refreshing = false
     private var lastRecoveryAttempt = Date.distantPast
+    private var browserProfileLoadID=UUID()
 
-    init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard) {
+    init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard, cookieReader:any BrowserCookieReading = NativeBrowserCookieReader(), cookieFiles:any TaskCookieServing = TaskCookieFiles()) {
         self.backend=backend; self.defaults=defaults
+        self.cookieReader=cookieReader;self.cookieFiles=cookieFiles
+        browserCookies=defaults.data(forKey:"browserCookiePreferencesV1").flatMap {try? JSONDecoder().decode(BrowserCookiePreferences.self,from:$0)} ?? BrowserCookiePreferences()
         options=defaults.data(forKey:"downloadOptionsV2").flatMap { try? JSONDecoder().decode(DownloadOptions.self,from:$0) } ?? DownloadOptions()
         submissions=(defaults.data(forKey:"submissionIntentsV2").flatMap { try? JSONDecoder().decode([SubmissionIntent].self,from:$0) } ?? []).map {
             var intent=$0
+            if intent.state == .syncing || intent.state == .cancellingCookies {intent.state = .failed;intent.error="上次浏览器 Cookie 同步已中断，尚未提交后台；可安全重试。"}
             if intent.state == .parsing || intent.state == .cancelling { intent.state = .uncertain }
             return intent
         }
@@ -101,6 +116,18 @@ enum ConnectionState: Equatable {
             connection = .ready
             let folders=Set((items+completed+pending).compactMap(\.folder))
             submissions.removeAll { folders.contains($0.id) && $0.state != .cancelling }
+            // Only confirmed terminal IDs are cleaned here. A broad orphan sweep
+            // could race a new synchronization that starts while history is fetched.
+            for item in history.done {if let folder=item.folder {await cookieFiles.discard(taskID:folder)}}
+            let active=Set((history.queue+history.pending).compactMap(\.folder))
+            for intent in submissions where intent.state == .failed && !active.contains(intent.id) {await cookieFiles.discard(taskID:intent.id)}
+            if canConfigure {
+                // Exclude new local submissions while sweeping confirmed idle files.
+                // In-flight/uncertain intents make canConfigure false.
+                isConfiguring=true
+                await cookieFiles.cleanup(keeping:active)
+                isConfiguring=false
+            }
             await exportFinished()
         } catch {
             if connection != .starting { connection = .offline }
@@ -150,6 +177,8 @@ enum ConnectionState: Equatable {
             let link = try LinkParser.resolve(text)
             let url = link.canonicalURL
             let requestOptions = try (selectedOptions ?? options).validated()
+            let syncCookies=browserCookies.enabled && CookieScope.forURL(url) != nil
+            guard !syncCookies || networkEnabled else {message="请在 Cookie 设置中保存浏览器选择，启用后台自动同步支持。";showSettings=true;return false}
             guard requestOptions.ytdlOverrides.isEmpty || networkEnabled else { message="请先在设置中启用并保存网络参数。";showSettings=true;return false }
             guard !submissions.contains(where: { $0.link.canonicalURL == url && $0.state != .failed }),
                   !exporting.contains(url), !items.contains(where: { $0.url == url }), !pending.contains(where: { $0.url == url }) else {
@@ -164,15 +193,42 @@ enum ConnectionState: Equatable {
             cancellationRequested = false
             lastAcceptedURL = nil
             submissions.removeAll { $0.link.canonicalURL == url && $0.state == .failed }
-            submissions.append(SubmissionIntent(id:taskFolder,link:link,quality:quality,audioOnly:audioOnly,options:requestOptions,destination:selectedDestination,createdAt:Date(),state:.parsing))
-            defer { isSubmitting = false; submittingURL = nil; submissionTask=nil }
+            submissions.append(SubmissionIntent(id:taskFolder,link:link,quality:quality,audioOnly:audioOnly,options:requestOptions,destination:selectedDestination,createdAt:Date(),state:syncCookies ? .syncing : .parsing))
+            defer { isSubmitting = false; submittingURL = nil; submissionTask=nil;cookieSyncTask=nil }
             // Persist intent before the request: a timeout or app exit must not lose
             // the destination of a task the server already accepted.
             var records = ExportRegistry.records
             records[taskFolder] = ExportRecord(destination: selectedDestination,originalURL:link.originalURL,canonicalURL:link.canonicalURL,quality:quality,audioOnly:audioOnly,options:requestOptions)
             ExportRegistry.records = records
             exportErrors[taskFolder] = nil
-            let body=try DownloadRequest.body(url:url,quality:quality,audioOnly:audioOnly,folder:taskFolder,options:requestOptions)
+            var cookieFile:String?
+            if syncCookies {
+                if let domain=CookieScope.forURL(url)?.domains.first,let loginURL=URL(string:"https://"+domain+"/") {browserLoginURL=loginURL}
+                let preferences=browserCookies
+                let sync=BrowserSessionSync(reader:cookieReader,files:cookieFiles)
+                let cookieTask=Task<String?,Error> {
+                    let result=try await sync.prepare(preferences:preferences,url:url,taskID:taskFolder)
+                    self.browserCookieStatus=result.status
+                    return result.cookieFile
+                }
+                cookieSyncTask=cookieTask
+                do {cookieFile=try await cookieTask.value}
+                catch {
+                    await cookieFiles.discard(taskID:taskFolder)
+                    if cancellationRequested || error is CancellationError {
+                        submissions.removeAll {$0.id==taskFolder};notice="已停止浏览器 Cookie 同步，未提交下载任务。"
+                    } else {
+                        setSubmission(taskFolder,state:.failed,error:error.localizedDescription)
+                        browserCookieStatus=error.localizedDescription;message=error.localizedDescription;showSettings=true
+                    }
+                    return false
+                }
+                if cancellationRequested {
+                    await cookieFiles.discard(taskID:taskFolder);submissions.removeAll {$0.id==taskFolder};return false
+                }
+                setSubmission(taskFolder,state:.parsing)
+            }
+            let body=try DownloadRequest.body(url:url,quality:quality,audioOnly:audioOnly,folder:taskFolder,options:requestOptions,cookieFile:cookieFile)
             let task=Task { try await backend.post("add",body:body) }
             submissionTask=task
             do {
@@ -234,8 +290,14 @@ enum ConnectionState: Equatable {
     }
     func cancelSubmission(_ id:String? = nil) async {
         guard !isConfiguring, !reconnecting, !runtimeRecoveryPending else { return }
-        let target=id.flatMap { key in submissions.first(where:{$0.id==key}) } ?? submissions.first(where:{$0.state == .parsing || $0.state == .uncertain})
+        let target=id.flatMap { key in submissions.first(where:{$0.id==key}) } ?? submissions.first(where:{$0.state == .syncing || $0.state == .parsing || $0.state == .uncertain})
         guard let target else {return}
+        if target.state == .syncing || target.state == .cancellingCookies {
+            cancellationRequested=true;setSubmission(target.id,state:.cancellingCookies)
+            cookieSyncTask?.cancel()
+            notice="已请求停止同步；如有系统授权窗口，请在该窗口取消。"
+            return
+        }
         setSubmission(target.id,state:.cancelling)
         if submittingURL == target.link.canonicalURL {cancellationRequested=true}
         do {
@@ -248,6 +310,7 @@ enum ConnectionState: Equatable {
             let accepted=(history.queue+history.pending).filter {$0.folder==target.id}
             for item in accepted { let request=try ActionRequest(.cancel,item:item);try await backend.post(request.route,body:request.body) }
             submissions.removeAll {$0.id==target.id}
+            await cookieFiles.discard(taskID:target.id)
             notice=accepted.isEmpty ? "已停止解析并核对后台；已完成的文件仍会保留。" : "已停止解析并取消刚创建的下载任务。"
             await refresh()
         } catch { setSubmission(target.id,state:.uncertain,error:"停止或核对未完成：\(error.localizedDescription)");report(error) }
@@ -306,6 +369,49 @@ enum ConnectionState: Equatable {
     }
     private var canConfigure: Bool {
         connection.isReady && !reconnecting && !isSubmitting && !isConfiguring && !runtimeRecoveryPending && !updater.isUpdating && items.isEmpty && pending.isEmpty && !submissions.contains(where: { $0.state == .uncertain || $0.state == .parsing || $0.state == .cancelling })
+    }
+    func reloadBrowserProfiles(_ browser:BrowserKind) async {
+        let loadID=UUID();browserProfileLoadID=loadID
+        isLoadingBrowserProfiles=true
+        defer {if browserProfileLoadID==loadID {isLoadingBrowserProfiles=false}}
+        do {
+            let profiles=try await Task.detached {try NativeBrowserCookieReader.profiles(for:browser)}.value
+            guard browserProfileLoadID==loadID,!Task.isCancelled else {return}
+            browserProfiles=profiles
+            if browserProfiles.isEmpty {browserCookieStatus="没有找到 \(browser.title) 的标准用户配置。请先打开该浏览器，或继续使用 Cookie 文件导入。"}
+        } catch {if browserProfileLoadID==loadID {browserProfiles=[];browserCookieStatus=error.localizedDescription}}
+    }
+    @discardableResult func saveBrowserCookies(_ candidate:BrowserCookiePreferences) async -> Bool {
+        guard canConfigure else {settingsMessage="请先完成下载、解析或引擎维护，再保存浏览器 Cookie 设置。";return false}
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {
+            if candidate.enabled {
+                let profiles=try await Task.detached {try NativeBrowserCookieReader.profiles(for:candidate.browser)}.value
+                guard profiles.contains(where:{$0.directory==candidate.profile}) else {throw AppError.message("未找到所选浏览器配置，请重新选择或先打开浏览器。")}
+                if !networkEnabled {try await RuntimeSupport.enableNetworkOptions();networkEnabled=try await RuntimeSupport.networkEnabled()}
+                try await RuntimeSupport.validateCookieMount()
+            }
+            browserCookies=candidate
+            browserCookieStatus=candidate.enabled ? "已开启：下次提交支持的平台链接时，从 \(candidate.browser.title) 同步 Cookie。首次可能出现系统授权提示。" : "自动读取已关闭；手动导入的 Cookie 文件仍可使用。"
+            settingsMessage="浏览器 Cookie 设置已保存。"
+            return true
+        } catch {settingsMessage=error.localizedDescription;return false}
+    }
+    func clearIdleBrowserCookies() async {
+        guard canConfigure else {settingsMessage="请先完成任务或核对未决提交，再清理会话文件。";return}
+        isConfiguring=true;defer {isConfiguring=false}
+        do {
+            let history=try await backend.history()
+            let keep=Set((history.queue+history.pending).compactMap(\.folder)+submissions.filter{$0.state != .failed}.map(\.id))
+            await cookieFiles.cleanup(keeping:keep);settingsMessage="已清理闲置自动会话文件，手动导入文件仍保留。"
+        } catch {settingsMessage="清理前无法核对后台，请恢复连接后再试。"}
+    }
+    func openBrowserLogin(_ browser:BrowserKind) {
+        let ids:[BrowserKind:String]=[.chrome:"com.google.Chrome",.edge:"com.microsoft.edgemac",.firefox:"org.mozilla.firefox",.safari:"com.apple.Safari"]
+        if let id=ids[browser],let app=NSWorkspace.shared.urlForApplication(withBundleIdentifier:id) {
+            NSWorkspace.shared.open([browserLoginURL],withApplicationAt:app,configuration:NSWorkspace.OpenConfiguration())
+        } else {settingsMessage="没有找到 \(browser.title)，请先安装或打开该浏览器。"}
     }
     func refreshSettings() async {
         do {

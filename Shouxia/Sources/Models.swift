@@ -134,13 +134,20 @@ struct APIResult: Decodable {
 
 
 enum DownloadRequest {
-    static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil, options: DownloadOptions = DownloadOptions()) throws -> Data {
+    static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil, options: DownloadOptions = DownloadOptions(), cookieFile: String? = nil) throws -> Data {
         let options = try options.validated()
         let isDirectMedia = ["mp4", "webm", "mov", "m4v"].contains(URL(string: url)?.pathExtension.lowercased() ?? "")
         let selectedQuality = !isDirectMedia && ["1080", "720", "480", "best"].contains(quality) ? quality : "best"
         var payload: [String: Any] = ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : options.videoFormat, "auto_start": true, "playlist_item_limit": 1]
         if let folder { payload["folder"] = folder }
-        if !options.ytdlOverrides.isEmpty { payload["ytdl_options_overrides"] = options.ytdlOverrides }
+        var overrides=options.ytdlOverrides
+        if let cookieFile {
+            let prefix="/downloads/.video-extractor-sessions/"
+            let components=String(cookieFile.dropFirst(prefix.count)).split(separator:"/",omittingEmptySubsequences:false)
+            guard cookieFile.hasPrefix(prefix),components.count==2,UUID(uuidString:String(components[0])) != nil,components[1]=="cookies.txt" else {throw AppError.message("Cookie 任务路径无效。")}
+            overrides["cookiefile"]=cookieFile
+        }
+        if !overrides.isEmpty { payload["ytdl_options_overrides"] = overrides }
         return try JSONSerialization.data(withJSONObject: payload)
     }
 }

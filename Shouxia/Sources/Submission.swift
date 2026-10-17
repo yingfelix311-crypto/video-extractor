@@ -1,9 +1,11 @@
 import Foundation
 
 enum SubmissionState: String, Codable, Sendable {
-    case parsing, cancelling, uncertain, failed
+    case syncing, cancellingCookies, parsing, cancelling, uncertain, failed
     var label: String {
         switch self {
+        case .syncing: "正在同步浏览器登录状态"
+        case .cancellingCookies: "正在停止 Cookie 同步"
         case .parsing: "正在读取视频信息"
         case .cancelling: "正在停止解析并核对任务"
         case .uncertain: "等待核对后台结果"

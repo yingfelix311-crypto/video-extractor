@@ -95,6 +95,15 @@ enum RuntimeSupport {
         try validateExposure(value)
         return ((value["Config"] as? [String: Any])?["Env"] as? [String] ?? []).contains("ALLOW_YTDL_OPTIONS_OVERRIDES=true")
     }
+    static func validateCookieMount() async throws {
+        let value=try await inspect("metube")
+        try validateExposure(value)
+        guard let mounts=value["Mounts"] as? [[String:Any]],
+              let mount=mounts.first(where:{$0["Destination"] as? String == "/downloads"}),
+              mount["Type"] as? String == "bind",mount["RW"] as? Bool == true,
+              let source=mount["Source"] as? String,
+              URL(fileURLWithPath:source).standardizedFileURL.path == SafeDownloadPath.root.standardizedFileURL.path else {throw fail("Cookie 同步需要本机下载目录的可写绑定；请检查后台配置。")}
+    }
     private static func healthy() async -> Bool { (try? await Backend().history()) != nil }
     private static func waitHealthy() async throws {
         for _ in 0..<30 { if await healthy() { return }; try await Task.sleep(for:.seconds(1)) }
