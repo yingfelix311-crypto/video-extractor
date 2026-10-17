@@ -16,7 +16,7 @@ struct RetryEditor:View {
             TextField("视频链接",text:$link).textFieldStyle(.roundedBorder).accessibilityLabel("重试原始链接")
             HStack { FormatControl(audioOnly:$audioOnly); QualityControl(quality:$quality).disabled(audioOnly) }
             Picker("视频格式",selection:$options.videoFormat) { Text("原始最佳格式").tag("any"); Text("MP4 源格式").tag("mp4") }.disabled(audioOnly)
-            Text("保留此任务提交时的网络参数和保存目录。Cookie 使用当前已导入文件。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+            Text(store.browserCookies.enabled ? "保留此任务提交时的网络参数和保存目录。支持的平台会重新读取所选浏览器的最新 Cookie。" : "保留此任务提交时的网络参数和保存目录。Cookie 使用当前手动导入的文件；可在设置中开启浏览器自动同步。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             HStack {
                 Button("Cookie 与网络设置") { showNetworkSettings=true }
                 Button("使用当前网络设置") {

@@ -23,7 +23,7 @@
 - 当前为尚未公证、没有开发者证书的测试包，系统可能限制首次启动。构建产物位于 GitHub Actions，尚未发布公开 Release。
 - [安装与构建说明](desktop/README.md) · [安装包构建记录](https://github.com/yingfelix311-crypto/video-extractor/actions/workflows/build-installers.yml)
 
-以下介绍包含原 SwiftUI 客户端功能；菜单栏入口、快捷输入框与引擎自动升级目前仅在原客户端提供。
+以下介绍包含原 SwiftUI 客户端功能；菜单栏入口、快捷输入框、引擎自动升级及 1.2.0 浏览器 Cookie 自动同步目前仅在原客户端提供。
 
 ## 功能
 
@@ -78,7 +78,17 @@
 | Instagram | 所测样例未提供可下载视频格式 |
 | 抖音 | 所测样例要求 Cookie |
 
-以上是有限样例结果，不代表整个平台的所有链接都能下载；当前客户端没有 Cookie 导入界面。
+以上是有限样例结果，不代表整个平台的所有链接都能下载。SwiftUI 客户端支持手动导入 Cookie，并可选择浏览器配置后自动同步对应平台的 Cookie。
+
+### 自动复用浏览器登录状态（SwiftUI 1.2.0）
+
+打开 **下载设置 → 浏览器登录状态**，开启自动同步，选择 Chrome、Edge、Firefox 的标准本机配置或 Safari 默认存储，点击 **保存浏览器 Cookie 设置**。默认关闭；浏览器和用户配置的修改在保存后生效。首次启用需要后台空闲，可能配置并重启本机下载服务。
+
+之后每次提交或重试抖音、YouTube、Bilibili、TikTok、Instagram、X、小红书、快手链接时，只读取所选配置中对应平台的 Cookie。短链按已知平台域名映射；不会为任意网页扫描全部登录状态。Chrome / Edge 可能请求 macOS 钥匙串授权，Safari 可能需要 **隐私与安全性 → 完全磁盘访问权限**；设置中提供浏览器、刷新配置和系统权限入口。Firefox 不读取容器或分区会话。
+
+Cookie 仅在本机处理，不读取密码、历史记录或云端浏览器数据。每个请求使用独立私有会话文件，通过已验证的本机 MeTube 挂载目录提供给下载引擎；后台确认结束后清理，未决任务保留文件以便核对。关闭自动同步会停止后续读取，闲置文件可在设置中清理。手动 Netscape 文件导入（最多 1 MB）和删除仍单独保留。
+
+同步成功不代表已登录或有下载权限。登录过期时，在浏览器中切换到所选配置重新登录，再重试以读取最新 Cookie；权限或加密不兼容时可关闭自动同步并手动导入。自动同步不会绕过网站验证、付费访问、地区限制或 DRM；没有可用站点 Cookie 时尝试公开访问。开发验证使用合成样本，不提取真实账户 Cookie。
 
 ## 记录、文件与后台
 
@@ -94,6 +104,11 @@
 # 在仓库根目录执行；以下测试不提交下载任务
 bash Shouxia/test.sh
 bash Shouxia/test-store.sh
+bash Shouxia/test-backend.sh
+bash Shouxia/test-runtime.sh
+bash Shouxia/test-submissions.sh
+bash Shouxia/test-browser-cookies.sh
+bash Shouxia/test-browser-session.sh
 bash Shouxia/test-clips.sh
 bash Shouxia/test-clip-timeline.sh
 bash Shouxia/test-update.sh

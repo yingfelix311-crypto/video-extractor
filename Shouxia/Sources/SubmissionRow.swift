@@ -22,12 +22,26 @@ struct FailureDetails:View {
 struct SubmissionRow:View {
     let intent:SubmissionIntent
     @ObservedObject var store:DownloadStore
+    private var progressing:Bool { [.syncing,.cancellingCookies,.parsing,.cancelling].contains(intent.state) }
+    private var stopping:Bool { [.cancellingCookies,.cancelling].contains(intent.state) }
+    private var title:String {
+        switch intent.state {
+        case .syncing: return "正在同步浏览器 Cookie…"
+        case .cancellingCookies: return "正在停止 Cookie 同步…"
+        case .parsing: return "正在解析链接…"
+        case .cancelling: return "正在停止并核对…"
+        case .uncertain: return "提交结果尚未确认"
+        case .failed: return "未能提交下载"
+        }
+    }
+    private var cancelTitle:String { intent.state == .uncertain ? "停止并核对" : intent.state == .syncing || intent.state == .cancellingCookies ? "取消同步" : "取消解析" }
     var body:some View {
         HStack(alignment:.top,spacing:15) {
-            if intent.state == .parsing || intent.state == .cancelling { ProgressView().controlSize(.small).frame(width:46,height:46) }
+            if progressing { ProgressView().controlSize(.small).frame(width:46,height:46).accessibilityLabel(title) }
             else { Image(systemName:"exclamationmark.circle").foregroundStyle(Ink.danger).frame(width:46,height:46) }
             VStack(alignment:.leading,spacing:7) {
-                Text(intent.state == .parsing ? "正在解析链接…" : intent.state == .cancelling ? "正在停止并核对…" : intent.state == .uncertain ? "提交结果尚未确认" : "未能提交下载").font(TypeStyle.medium(13))
+                Text(title).font(TypeStyle.medium(13))
+                if intent.state == .syncing || intent.state == .cancellingCookies { Text("仅读取当前平台的 Cookie，尚未提交下载。").foregroundStyle(Ink.muted) }
                 Text(intent.summary).foregroundStyle(Ink.muted)
                 Text(intent.link.originalURL).lineLimit(2).textSelection(.enabled)
                 if intent.link.wasNormalized { Text("已转换为：\(intent.link.canonicalURL)").foregroundStyle(Ink.muted).textSelection(.enabled) }
@@ -40,7 +54,7 @@ struct SubmissionRow:View {
                     Button("移除") { store.dismissSubmission(intent.id) }.accessibilityLabel("移除失败的提交")
                 }.buttonStyle(.plain).foregroundStyle(Ink.mint)
             } else {
-                Button(intent.state == .uncertain ? "停止并核对" : "取消解析") { Task { await store.cancelSubmission(intent.id) } }.buttonStyle(.plain).foregroundStyle(Ink.mint).disabled(intent.state == .cancelling).accessibilityLabel(intent.state == .uncertain ? "停止并核对提交" : "取消链接解析")
+                Button(cancelTitle) { Task { await store.cancelSubmission(intent.id) } }.buttonStyle(.plain).foregroundStyle(Ink.mint).disabled(stopping).accessibilityLabel(cancelTitle)
             }
         }.padding(.vertical,20).overlay(alignment:.bottom) { Rectangle().fill(Ink.line).frame(height:1) }
     }

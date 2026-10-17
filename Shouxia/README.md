@@ -12,7 +12,19 @@
 
 点击「保存到 / 更改」选择输出文件夹；提交时记录本次任务的保存位置，后续更改不会影响旧任务的自动保存位置；失败任务点击「重试保存」时使用当前选择的文件夹，也可点击「选择文件夹并重试」。保存错误直接显示原因与位置。下载缓存保留在 `~/Downloads/MeTube`。关闭窗口后菜单栏入口仍可使用；退出应用不会停止后台下载。需要释放后台资源时，使用桌面 `MeTube视频下载/停止MeTube.command`。
 
-支持范围由已安装 yt-dlp/MeTube 决定。YouTube、Bilibili、抖音、X 的具体链接可能受登录、地区、版权或平台变化影响；此版本没有账户 Cookie 导入界面。2026-10-01 的六个平台实测中，YouTube、Bilibili、TikTok、X 样例成功，Instagram 样例无可下载格式，抖音样例要求新鲜 Cookie；这不代表整个平台的所有链接都能下载。视频优先 MP4，音频转为 MP3；直链按原始画质保存。
+支持范围由已安装 yt-dlp/MeTube 决定。YouTube、Bilibili、抖音、X 的具体链接可能受登录、地区、版权或平台变化影响。支持手动 Cookie 导入和可选的浏览器自动同步，操作见下文。2026-10-01 的六个平台实测中，YouTube、Bilibili、TikTok、X 样例成功，Instagram 样例无可下载格式，抖音样例要求新鲜 Cookie；这不代表整个平台的所有链接都能下载。视频默认使用源站原始最佳格式；MP4 选项只选择源格式，不转码。音频转为 MP3。
+
+## 1.2.0 浏览器 Cookie 自动同步
+
+自动同步默认关闭。在「下载设置 → 浏览器登录状态」开启开关，选择 Chrome、Edge、Firefox 的标准本机用户配置，或 Safari 默认 Cookie 存储，再点击「保存浏览器 Cookie 设置」。修改先保留在界面草稿中，保存后才生效；切换或刷新不会读取 Cookie。首次启用需要下载后台空闲，可能备份并重启后台以支持独立任务参数。
+
+提交或重试抖音、YouTube、Bilibili、TikTok、Instagram、X、小红书、快手链接时，应用重新读取所选配置中对应平台的 Cookie；已知短链映射到所属平台，其他域名不触发读取。Chrome / Edge 解密可能弹出 macOS Safe Storage 钥匙串授权；Safari 可能需要在「隐私与安全性 → 完全磁盘访问权限」允许本应用，并重新打开应用。不会绕过系统授权。Firefox 不读取容器或分区会话；不混用其他用户配置。
+
+需要登录时，点击「打开所选浏览器」，在浏览器内切换到所选用户配置并登录网站，再重试。没有找到配置时，打开浏览器后点击「刷新配置」；已保存配置消失时，重新选择并保存。状态仅反映同步或读取结果，不能确认网站登录有效性。Cookie 过期、平台风控、付费访问、地区限制及 DRM 仍可能阻止下载；权限被拒绝或加密版本不兼容时，可关闭自动同步并使用手动导入。
+
+同步仅在本机发生，不读取密码、历史记录或云端浏览器数据。每次请求生成独立私有 Cookie 文件，目录权限 0700、文件权限 0600，存放在已验证的本机 MeTube 下载挂载中；设置、日志和请求正文不保存 Cookie 值，请求只提交内部生成的文件路径。同步阶段可取消，尚未提交到下载后台。后台确认任务结束后清理会话文件，未决任务保留以便恢复核对；「清理闲置自动会话文件」保留活动任务所需文件。关闭自动同步停止后续读取。
+
+「手动导入 Cookie」继续支持自己导出的 Netscape 文本文件（最多 1 MB）。导入、删除与自动会话文件分开管理。自动同步失败时不会静默使用旧自动文件；没有可用站点 Cookie 时尝试公开访问。开发测试只使用合成 Cookie、SQLite 和加密样本，真实账户授权应由用户在应用中完成。
 
 ## 截取片段
 
@@ -40,6 +52,11 @@
 ```sh
 bash Shouxia/test.sh --live
 bash Shouxia/test-store.sh
+bash Shouxia/test-backend.sh
+bash Shouxia/test-runtime.sh
+bash Shouxia/test-submissions.sh
+bash Shouxia/test-browser-cookies.sh
+bash Shouxia/test-browser-session.sh
 bash Shouxia/test-clips.sh # 可追加一个带音轨的视频路径，验证 1.5 秒短片导出
 bash Shouxia/test-clip-timeline.sh
 bash Shouxia/test-update.sh
