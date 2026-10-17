@@ -82,9 +82,14 @@ struct Backend: BackendServing, Sendable {
         request.timeoutInterval = body == nil ? 5 : 90
         if body != nil { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
         let (data, response) = try await session.data(for: request)
-        guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
-            let message = (try? JSONDecoder().decode(APIResult.self, from: data))?.msg
-            throw AppError.message(message ?? "下载服务返回错误：" + String(decoding: data.prefix(1000), as: UTF8.self))
+        guard let response = response as? HTTPURLResponse else {
+            throw UnconfirmedBackendResponse(message: "下载服务未返回有效 HTTP 响应，请先核对任务状态。")
+        }
+        guard (200..<300).contains(response.statusCode) else {
+            if let result = try? JSONDecoder().decode(APIResult.self, from: data), result.status == "error" {
+                throw AppError.message(result.msg ?? "下载服务未能完成操作。")
+            }
+            throw UnconfirmedBackendResponse(message: "下载服务返回 HTTP \(response.statusCode)，请先核对任务状态。")
         }
         return data
     }

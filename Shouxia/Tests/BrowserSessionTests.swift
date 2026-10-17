@@ -23,11 +23,13 @@ actor SessionBackendFixture:BackendServing {
     var requests:[[String:Any]]=[]
     var cancels=0
     var unknown=false
+    var addResponse:Data?
     func history() async throws -> History { History(done:done,queue:queue,pending:[]) }
     func post(_ route:String,body:Data) async throws {
         guard route == "add" else {return}
         let payload=try JSONSerialization.jsonObject(with:body) as! [String:Any]; requests.append(payload)
         if unknown {throw URLError(.timedOut)}
+        if let addResponse {try APIResult.validate(addResponse)}
         let data=try JSONSerialization.data(withJSONObject:["id":"test","url":payload["url"]!,"folder":payload["folder"]!,"title":"Fixture","status":"downloading"])
         queue.append(try JSONDecoder().decode(DownloadItem.self,from:data))
     }
@@ -35,6 +37,7 @@ actor SessionBackendFixture:BackendServing {
     func last()->[String:String] {requests.last?["ytdl_options_overrides"] as? [String:String] ?? [:]}
     func count()->Int {requests.count}
     func markUnknown() {unknown=true}
+    func respondWith(_ data:Data) {addResponse=data}
     func cookieStatus() async throws -> Bool {false}
     func uploadCookies(_ data:Data) async throws {}
     func deleteCookies() async throws {}
@@ -69,6 +72,15 @@ actor SessionBackendFixture:BackendServing {
         try fm.createSymbolicLink(at:files.directory,withDestinationURL:outside)
         do {_ = try await files.prepare(cookies,scope:scope,taskID:id);preconditionFailure("symlink refused")} catch {}
         try fm.removeItem(at:files.directory)
+
+        let gatedReader=SessionReaderFixture()
+        let gatedFiles=TaskCookieFiles(downloadRoot:root,verifyRuntime:{throw AppError.message("Synthetic runtime mount rejection")})
+        let gatedSync=BrowserSessionSync(reader:gatedReader,files:gatedFiles)
+        do {
+            _ = try await gatedSync.prepare(preferences:BrowserCookiePreferences(enabled:true,browser:.chrome,profile:"Default"),url:"https://www.douyin.com/video/42",taskID:id)
+            preconditionFailure("invalid runtime must block synchronization")
+        } catch {expect(error.localizedDescription=="Synthetic runtime mount rejection","runtime verification failure propagated")}
+        expect(await gatedReader.count()==0,"runtime validated before reading any browser credentials")
 
         let suite="BrowserSession.Tests."+UUID().uuidString
         let defaults=UserDefaults(suiteName:suite)!
@@ -105,6 +117,25 @@ actor SessionBackendFixture:BackendServing {
         expect(!(await cancelling.value),"sync cancelled")
         expect(await backend.cancellationCount()==0,"local sync cancellation never calls global backend cancellation")
         expect(await backend.count()==before,"cancelled sync makes zero adds")
+        let malformedSuite="BrowserSession.Malformed."+UUID().uuidString
+        let malformedDefaults=UserDefaults(suiteName:malformedSuite)!
+        defer {malformedDefaults.removePersistentDomain(forName:malformedSuite)}
+        malformedDefaults.set(try JSONEncoder().encode(BrowserCookiePreferences(enabled:true,browser:.chrome,profile:"Default")),forKey:"browserCookiePreferencesV1")
+        let malformedBackend=SessionBackendFixture()
+        await malformedBackend.respondWith(Data("{malformed".utf8))
+        await reader.configure()
+        let malformedStore=DownloadStore(backend:malformedBackend,defaults:malformedDefaults,cookieReader:reader,cookieFiles:files)
+        malformedStore.connection = .ready;malformedStore.networkEnabled=true
+        expect(!(await malformedStore.submit("https://www.douyin.com/video/7",quality:"best",audioOnly:false)),"malformed response cannot confirm acceptance")
+        expect(malformedStore.submissions.first?.state == .uncertain,"malformed add response remains uncertain despite reachable empty history")
+        let malformedPath=await malformedBackend.last()["cookiefile"]!
+        let malformedFile=root.appendingPathComponent(String(malformedPath.dropFirst("/downloads/".count)))
+        await malformedStore.refresh()
+        expect(fm.fileExists(atPath:malformedFile.path),"later empty history retains cookie after malformed add response")
+        expect(!(await malformedStore.submit("https://www.douyin.com/video/7",quality:"best",audioOnly:false)),"uncertain add blocks duplicate submission")
+        expect(await malformedBackend.count()==1,"duplicate never reaches backend")
+        await malformedStore.cancelSubmission()
+        expect(malformedStore.submissions.isEmpty && !fm.fileExists(atPath:malformedFile.path),"confirmed cancellation releases uncertain intent and private cookie")
         await reader.configure();await backend.markUnknown()
         expect(!(await enabled.submit("https://www.douyin.com/video/6",quality:"best",audioOnly:false)),"unknown add remains unresolved")
         let unknownPath=await backend.last()["cookiefile"]!

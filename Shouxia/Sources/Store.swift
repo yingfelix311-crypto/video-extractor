@@ -246,7 +246,8 @@ enum ConnectionState: Equatable {
                 await refresh()
                 // The cancellation owner removes the intent only after successful reconciliation.
                 if cancellationRequested { return false }
-                let unresolved=(error is URLError || error is CancellationError || !connection.isReady)
+                // Only an explicit backend rejection establishes that retrying is safe.
+                let unresolved = !(error is AppError) || !connection.isReady
                 setSubmission(taskFolder,state:unresolved ? .uncertain : .failed,error:error.localizedDescription)
                 report(error)
                 return false

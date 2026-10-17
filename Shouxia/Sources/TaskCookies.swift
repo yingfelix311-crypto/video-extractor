@@ -7,6 +7,7 @@ struct BrowserCookiePreferences: Codable, Equatable, Sendable {
 }
 
 protocol TaskCookieServing: Sendable {
+    func validateRuntime() async throws
     func prepare(_ cookies:[SessionCookie],scope:CookieScope,taskID:String) async throws -> String?
     func discard(taskID:String) async
     func cleanup(keeping taskIDs:Set<String>) async
@@ -20,6 +21,7 @@ struct TaskCookieFiles: TaskCookieServing, Sendable {
     init(downloadRoot:URL = SafeDownloadPath.root,verifyRuntime:@escaping @Sendable () async throws -> Void = {try await RuntimeSupport.validateCookieMount()}) {
         self.downloadRoot=downloadRoot;self.verifyRuntime=verifyRuntime
     }
+    func validateRuntime() async throws {try await verifyRuntime()}
     private func filename(_ taskID:String) throws -> String {
         let prefix="VideoExtractor/"
         guard taskID.hasPrefix(prefix),let id=UUID(uuidString:String(taskID.dropFirst(prefix.count))) else {throw AppError.message("Cookie 任务标识无效。")}
@@ -44,7 +46,7 @@ struct TaskCookieFiles: TaskCookieServing, Sendable {
         guard String(decoding:data,as:UTF8.self).split(whereSeparator:\.isNewline).contains(where:{!$0.hasPrefix("#") || $0.hasPrefix("#HttpOnly_")}) else {return nil}
         try CookieFile.validate(data)
         try Task.checkCancellation()
-        try await verifyRuntime()
+        try await validateRuntime()
         try Task.checkCancellation()
         let fd=try checkedDirectory(create:true);defer {close(fd)}
         guard mkdirat(fd,name,0o700)==0 else {throw AppError.message("无法创建此任务的私有 Cookie 目录。")}

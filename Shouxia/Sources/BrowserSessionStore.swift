@@ -10,6 +10,9 @@ struct BrowserSessionSync: Sendable {
     let files:any TaskCookieServing
     func prepare(preferences:BrowserCookiePreferences,url:String,taskID:String) async throws -> BrowserSessionResult {
         guard preferences.enabled,let scope=CookieScope.forURL(url) else {return .init(cookieFile:nil,status:"未对这个链接读取浏览器登录状态。")}
+        try Task.checkCancellation()
+        try await files.validateRuntime()
+        try Task.checkCancellation()
         let cookies=try await reader.read(browser:preferences.browser,profile:preferences.profile,scope:scope)
         try Task.checkCancellation()
         let path=try await files.prepare(cookies,scope:scope,taskID:taskID)

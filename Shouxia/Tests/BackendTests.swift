@@ -58,7 +58,15 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         try await backend.cancelAdd()
         StubProtocol.handler = { _ in (400,Data(#"{"status":"error","msg":"Cookie file too large"}"#.utf8)) }
         do { try await backend.post("add",body:Data());fatalError("HTTP error must propagate") }
-        catch { precondition(error.localizedDescription.contains("Cookie file too large")) }
+        catch { precondition(error is AppError && error.localizedDescription.contains("Cookie file too large"),"structured backend rejection is definite") }
+        for (status,response) in [(200,"{malformed"),(200,#"{"status":"unexpected","msg":"unknown outcome"}"#),(200,#"{"msg":"missing status"}"#),(500,"gateway failed"),(500,#"{"status":"ok"}"#)] {
+            StubProtocol.handler = { _ in (status,Data(response.utf8)) }
+            do {try await backend.post("add",body:Data());fatalError("unconfirmed response must throw")}
+            catch {precondition(!(error is AppError),"HTTP/protocol failure cannot imply definite rejection")}
+        }
+        StubProtocol.handler = { _ in (200,Data(#"{"status":"error","msg":"Fresh cookies are needed"}"#.utf8)) }
+        do {try await backend.post("add",body:Data());fatalError("explicit rejection must throw")}
+        catch {precondition(error is AppError,"explicit protocol rejection remains definite")}
         print("PASS: Cookie validation, multipart upload, status/delete, cancel-add, HTTP errors")
     }
 }

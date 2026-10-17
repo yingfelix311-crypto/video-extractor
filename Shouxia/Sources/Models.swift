@@ -5,6 +5,12 @@ enum AppError: LocalizedError {
     var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
 }
 
+/// The response does not establish whether a mutating request was accepted.
+struct UnconfirmedBackendResponse: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
 struct DownloadItem: Decodable, Identifiable, Sendable {
     let mediaID: String
     var id: String { url }
@@ -127,8 +133,14 @@ struct APIResult: Decodable {
     let status: String
     let msg: String?
     static func validate(_ data: Data) throws {
-        let result = try JSONDecoder().decode(APIResult.self, from: data)
-        guard result.status == "ok" else { throw AppError.message(result.msg ?? "下载服务未能完成操作。") }
+        let result: APIResult
+        do { result = try JSONDecoder().decode(APIResult.self, from: data) }
+        catch { throw UnconfirmedBackendResponse(message: "下载服务响应格式不完整，请先核对任务状态。") }
+        switch result.status {
+        case "ok": return
+        case "error": throw AppError.message(result.msg ?? "下载服务未能完成操作。")
+        default: throw UnconfirmedBackendResponse(message: "下载服务返回未知状态，请先核对任务状态。")
+        }
     }
 }
 
