@@ -35,9 +35,9 @@ struct QuickStartView: View {
                     guideSection("确认保存位置", "提交前选择文件夹。任务保留提交时的位置；下载后软件会将文件保存到该位置，保存完成才可打开或截取。")
                     DestinationControl(store: store).disabled(maintenance)
                     Divider()
-                    guideSection("失败时先看当前阶段", "提交结果未确认时，先停止并核对，避免重复下载。下载失败可展开原始错误，按实际问题检查链接、网络或格式后重试。")
+                    guideSection("失败时看简短原因", "按提示检查链接、网络或格式后重试。提交结果未确认时，先停止并核对，避免重复下载。")
                     Text("如果下载成功但保存失败，选择可写入的文件夹，再点“重试保存”；它会使用当前文件夹，通常无需重新下载。").font(TypeStyle.body(12)).foregroundStyle(Ink.muted)
-                    guideSection("截取本地视频", "保存完成后点击剪刀，或使用菜单“截取本地视频…”。默认跟随原视频尺寸；也可选横屏、竖屏、方形等常用尺寸。预览与导出均等比完整显示，空余填黑，不拉伸。导出新的 MP4，保留源文件。")
+                    guideSection("截取本地视频", "保存完成后点击剪刀，或使用菜单“截取本地视频…”。默认跟随原视频尺寸；也可选横屏、竖屏、方形等常用尺寸。拖动“预览大小”可放大缩小显示；导出按所选画面尺寸，等比完整显示。导出新的 MP4，保留源文件。")
                     Divider()
                     DisclosureGroup("网站访问辅助说明（可选）",isExpanded:$accessHelpExpanded) {
                         VStack(alignment:.leading,spacing:12) {

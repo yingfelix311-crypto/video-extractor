@@ -258,7 +258,13 @@ struct ClipSpeedControl: View {
 
 struct ClipEditorView: View {
     @ObservedObject var model: ClipEditorModel
+    @State private var previewHeight:CGFloat=320
     var body: some View {
+        GeometryReader { viewport in
+        let canvasSize=model.geometry.map {model.canvas.size(for:$0)} ?? CGSize(width:16,height:9)
+        let availableWidth=max(1,viewport.size.width-52)
+        let maxPreviewHeight=max(180,min(720,min(viewport.size.height*0.7,availableWidth*canvasSize.height/canvasSize.width)))
+        let displayHeight=min(maxPreviewHeight,max(180,previewHeight))
         ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
@@ -283,8 +289,7 @@ struct ClipEditorView: View {
                 }
             }
             GeometryReader { proxy in
-                let size = model.geometry.map { model.canvas.size(for: $0) } ?? CGSize(width: 16, height: 9)
-                let fitted = ClipGeometry.fit(size: size, inside: proxy.size)
+                let fitted = ClipGeometry.fit(size: canvasSize, inside: proxy.size)
                 ZStack {
                     Color.black
                     ClipPlayer(player: model.player)
@@ -292,8 +297,22 @@ struct ClipEditorView: View {
                 }.frame(width: fitted.width, height: fitted.height)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }.frame(height: 260)
-            Text("预览与导出使用相同尺寸；完整保留画面，空余区域填黑。")
+            }.frame(height: displayHeight)
+            HStack(spacing:12) {
+                Text("预览大小").foregroundStyle(Ink.muted)
+                Button {previewHeight=max(180,displayHeight-40)} label: {
+                    Image(systemName:"minus.magnifyingglass").frame(width:28,height:28)
+                }.disabled(displayHeight<=180).accessibilityLabel("缩小预览")
+                Slider(value:Binding(get:{displayHeight},set:{previewHeight=$0}),in:180...max(181,maxPreviewHeight))
+                    .frame(maxWidth:180).tint(Ink.mint).disabled(maxPreviewHeight<=180)
+                    .accessibilityLabel("预览大小")
+                Button {previewHeight=min(maxPreviewHeight,displayHeight+40)} label: {
+                    Image(systemName:"plus.magnifyingglass").frame(width:28,height:28)
+                }.disabled(displayHeight>=maxPreviewHeight).accessibilityLabel("放大预览")
+                Button("适应窗口") {previewHeight=maxPreviewHeight}.foregroundStyle(Ink.mint)
+                Spacer(minLength:0)
+            }.font(TypeStyle.body(11)).buttonStyle(.plain)
+            Text("缩放只改变预览大小；导出保持所选尺寸，完整画面等比显示。")
                 .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             VStack(spacing: 10) {
                 ClipTimeline(model: model)
@@ -321,7 +340,7 @@ struct ClipEditorView: View {
                 Text("时:分:秒.毫秒").foregroundStyle(Ink.muted)
             }.font(TypeStyle.body(11))
             Rectangle().fill(Ink.line).frame(height: 1)
-            if let error = model.error { Text(error).font(TypeStyle.body(12)).foregroundStyle(Ink.danger).textSelection(.enabled) }
+            if let error = model.error { Text(errorSummary(error)).font(TypeStyle.body(12)).foregroundStyle(Ink.danger).textSelection(.enabled) }
             if let notice = model.notice { Text(notice).font(TypeStyle.body(12)).foregroundStyle(Ink.muted) }
             if model.exporting {
                 HStack(spacing: 14) {
@@ -346,11 +365,17 @@ struct ClipEditorView: View {
             }.disabled(model.range == nil || model.loading || model.exporting)
         }
         .padding(26).frame(maxWidth: .infinity)
+        }
         }.frame(minWidth: 640, minHeight: 480).background(Ink.paper).foregroundStyle(Ink.dark)
         .preferredColorScheme(.dark)
         .task { await model.load() }
         .onChange(of: model.startText) { _, _ in model.resetPreview() }
         .onChange(of: model.endText) { _, _ in model.resetPreview() }
+    }
+    private func errorSummary(_ raw:String)->String {
+        if raw.hasPrefix("导出失败") {return "片段导出失败"}
+        if raw.hasPrefix("无法打开视频") {return "视频无法打开"}
+        return raw
     }
     private func timeField(_ title: String, text: Binding<String>, start: Bool) -> some View {
         VStack(alignment: .leading, spacing: 9) {

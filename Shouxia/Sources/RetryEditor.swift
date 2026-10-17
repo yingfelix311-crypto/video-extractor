@@ -10,21 +10,26 @@ struct RetryEditor:View {
     @State private var options=DownloadOptions()
     @State private var working=false
     @State private var showNetworkSettings=false
+    @FocusState private var linkFocused:Bool
     var body:some View {
         VStack(alignment:.leading,spacing:18) {
             HStack { Text("修正后重试").font(TypeStyle.heading(20)); Spacer(); Button("取消") { dismiss() } }
-            TextField("视频链接",text:$link).textFieldStyle(.roundedBorder).accessibilityLabel("重试原始链接")
+            HStack {
+                TextField("视频链接",text:$link).textFieldStyle(.roundedBorder).focused($linkFocused)
+                    .onExitCommand {link="";linkFocused=true}.accessibilityLabel("重试原始链接")
+                ClearLinkButton(isEmpty:link.isEmpty,label:"清空重试链接") {link="";linkFocused=true}
+            }
             HStack { FormatControl(audioOnly:$audioOnly); QualityControl(quality:$quality).disabled(audioOnly) }
             Picker("视频格式",selection:$options.videoFormat) { Text("原始最佳格式").tag("any"); Text("MP4 源格式").tag("mp4") }.disabled(audioOnly)
-            Text(store.browserCookies.enabled ? "保留此任务提交时的网络参数和保存目录。支持的平台会重新读取所选浏览器的最新 Cookie。" : "保留此任务提交时的网络参数和保存目录。Cookie 使用当前手动导入的文件；可在设置中开启浏览器自动同步。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+            Text("重试保留原保存位置；可调整链接、画质和格式。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             HStack {
-                Button("Cookie 与网络设置") { showNetworkSettings=true }
+                Button("下载设置") { showNetworkSettings=true }
                 Button("使用当前网络设置") {
                     let format=options.videoFormat
                     options=store.options;options.videoFormat=format
                 }
             }.buttonStyle(.plain).foregroundStyle(Ink.mint)
-            Text(options.ytdlOverrides.isEmpty ? "本次重试：不附加网络参数" : "本次重试：附加 \(options.ytdlOverrides.keys.sorted().joined(separator: "、"))")
+            Text(options.ytdlOverrides.isEmpty ? "使用默认网络连接" : "使用已配置的网络设置")
                 .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             if let message=store.message { FailureDetails(raw:message,store:store) }
             Button(working ? "正在提交…" : "提交重试") {

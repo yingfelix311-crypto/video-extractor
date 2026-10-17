@@ -53,19 +53,31 @@ struct DownloadFailure: Sendable, Equatable {
     static func classify(_ raw: String) -> DownloadFailure {
         let text = raw.lowercased()
         func has(_ terms: [String]) -> Bool { terms.contains(where: text.contains) }
+        if text.contains("启用后台自动同步支持") {return .init(kind:.cookies,title:"网站访问辅助尚未配置",message:"",actionTitle:"网站访问辅助")}
+        if text.contains("启用并保存网络参数") {return .init(kind:.service,title:"网络设置尚未配置",message:"",actionTitle:"网络设置")}
+        if has(["请粘贴一个完整", "链接格式不正确", "modal_id 无效"]) { return .init(kind:.unsupportedLink,title:"链接格式不正确",message:"",actionTitle:"检查链接") }
+        if has(["本机或局域网地址"]) { return .init(kind:.unsupportedLink,title:"不支持本机或局域网链接",message:"",actionTitle:"检查链接") }
+        if has(["已有任务正在处理"]) { return .init(kind:.unknown,title:"这个链接正在处理中",message:"",actionTitle:"查看任务") }
+        if has(["正在连接，请稍后", "服务尚未连接"]) { return .init(kind:.service,title:"下载服务正在连接",message:"",actionTitle:"重新连接") }
+        if has(["后台设置正在保存", "后台正在配置", "后台恢复尚未完成"]) { return .init(kind:.service,title:"后台正在准备，请稍后重试",message:"",actionTitle:"重试") }
+        if has(["引擎正在更新"]) { return .init(kind:.service,title:"下载引擎正在更新",message:"",actionTitle:"稍后重试") }
+        if has(["未决任务", "尚未确认任务", "提交结果未确认"]) { return .init(kind:.unknown,title:"提交结果待确认，请先核对任务",message:"",actionTitle:"核对任务") }
         if has(["cancelled", "canceled", "取消"]) { return .init(kind: .cancelled, title: "下载已取消", message: "确认链接和参数后可重新提交。", actionTitle: "重试") }
         if has(["unsupported url", "unsupported link", "不支持的链接"]) { return .init(kind: .unsupportedLink, title: "链接暂不受支持", message: "请复制单个视频的分享链接，或更新下载引擎。", actionTitle: "检查链接") }
         if text.contains("无法读取 safari cookie"),text.contains("完全磁盘访问权限") {
             return .init(kind:.cookies,title:"Safari 访问权限不足",message:"macOS 尚未允许本应用读取 Safari Cookie。请为 Video Extractor 开启完全磁盘访问权限，退出并重新打开软件后重试。",actionTitle:"管理 Cookie")
         }
         if text.contains("fresh cookies") {
-            return .init(kind:.unknown,title:"暂未取得视频信息",message:"下载引擎未取得视频数据；这条通用报错不能确认需要登录或浏览器授权。可先重试或检查引擎兼容性。",actionTitle:"重试")
+            return .init(kind:.unknown,title:"暂时无法解析这个视频",message:"",actionTitle:"重试")
         }
-        if has(["cookie", "sign in", "login required", "log in", "登录", "浏览器配置", "浏览器会话", "网站会话", "钥匙串"]) { return .init(kind: .cookies, title: "网站会话或读取遇到问题", message: "此提示不能证明账号未登录。请查看原始原因：本机读取失败可本次跳过；网站明确要求登录时再到所选浏览器登录，解析方式也可能需要适配。", actionTitle: "检查网站会话") }
+        if has(["浏览器 cookie", "浏览器配置", "浏览器会话", "本机网站会话", "会话存储", "钥匙串"]) || (text.contains("无法读取") && text.contains("cookie")) { return .init(kind:.cookies,title:"浏览器信息读取失败",message:"",actionTitle:"网站访问辅助") }
+        if has(["sign in", "login required", "log in", "需要登录", "请登录", "登录后"]) { return .init(kind:.cookies,title:"网站要求登录后访问",message:"",actionTitle:"网站访问辅助") }
+        if has(["cookie", "网站会话"]) { return .init(kind:.cookies,title:"网站暂时无法访问",message:"",actionTitle:"网站访问辅助") }
         if has(["requested format", "format is not available", "no video formats", "格式不可用"]) { return .init(kind: .format, title: "所选格式不可用", message: "尝试原始最佳格式或降低清晰度。", actionTitle: "调整参数") }
         if has(["permission denied", "operation not permitted", "read-only file", "权限"]) { return .init(kind: .permission, title: "无法写入文件", message: "请重新选择可写入的保存目录。", actionTitle: "选择目录") }
         if has(["127.0.0.1:8081", "localhost:8081", "下载服务", "backend offline", "backend is offline", "metube offline", "metube is offline"]) { return .init(kind: .service, title: "下载服务不可用", message: "请检查设置中的后台依赖和服务状态。", actionTitle: "检查服务") }
+        if has(["http error 403", "403: forbidden", "status code 403"]) { return .init(kind:.network,title:"网站暂时拒绝访问",message:"",actionTitle:"重试") }
         if has(["service unavailable", "403", "forbidden", "timed out", "timeout", "network", "proxy", "connection", "http error", "dns", "certificate"]) { return .init(kind: .network, title: "网络请求失败", message: "请检查网络、代理或请求头设置后重试。", actionTitle: "网络设置") }
-        return .init(kind: .unknown, title: "下载失败", message: "查看原始错误，确认链接与参数后重试。", actionTitle: "重试")
+        return .init(kind: .unknown, title: "暂时无法解析这个视频", message: "", actionTitle: "重试")
     }
 }

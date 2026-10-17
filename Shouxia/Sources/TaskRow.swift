@@ -55,11 +55,8 @@ struct TaskRow: View {
                     }.frame(height: 3).padding(.top, 3)
                 }
                 if let exportError {
-                    Text(exportError).font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
-                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    Text("重试将保存到：\(store.destinationPath)")
-                        .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
-                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    Text(exportError.contains("缓存文件") || exportError.contains("未返回文件名") ? "下载文件不完整" : "文件保存失败")
+                        .font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
                 }
                 if item.isFailed {
                     FailureDetails(raw:item.error ?? item.msg ?? "视频源未返回可下载内容。",store:store)

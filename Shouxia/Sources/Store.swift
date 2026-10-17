@@ -180,8 +180,8 @@ enum ConnectionState: Equatable {
             let url = link.canonicalURL
             let requestOptions = try (selectedOptions ?? options).validated()
             let syncCookies=browserCookies.enabled && (useBrowserSession ?? true) && CookieScope.forURL(url) != nil
-            guard !syncCookies || networkEnabled else {message="请在 Cookie 设置中保存浏览器选择，启用后台自动同步支持。";showSettings=true;return false}
-            guard requestOptions.ytdlOverrides.isEmpty || networkEnabled else { message="请先在设置中启用并保存网络参数。";showSettings=true;return false }
+            guard !syncCookies || networkEnabled else {message="请在 Cookie 设置中保存浏览器选择，启用后台自动同步支持。";return false}
+            guard requestOptions.ytdlOverrides.isEmpty || networkEnabled else { message="请先在设置中启用并保存网络参数。";return false }
             guard !submissions.contains(where: { $0.link.canonicalURL == url && $0.state != .failed }),
                   !exporting.contains(url), !items.contains(where: { $0.url == url }), !pending.contains(where: { $0.url == url }) else {
                 message = "这个链接已有任务正在处理，请等待完成。"; return false
@@ -221,7 +221,7 @@ enum ConnectionState: Equatable {
                         submissions.removeAll {$0.id==taskFolder};notice="已停止浏览器 Cookie 同步，未提交下载任务。"
                     } else {
                         setSubmission(taskFolder,state:.failed,error:error.localizedDescription)
-                        browserCookieStatus=error.localizedDescription;message=error.localizedDescription;showSettings=true
+                        browserCookieStatus=error.localizedDescription;report(error)
                     }
                     return false
                 }

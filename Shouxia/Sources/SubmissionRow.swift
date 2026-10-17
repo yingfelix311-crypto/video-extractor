@@ -6,17 +6,8 @@ struct FailureDetails:View {
     @ObservedObject var store:DownloadStore
     private var failure:DownloadFailure { DownloadFailure.classify(raw) }
     var body:some View {
-        VStack(alignment:.leading,spacing:7) {
-            Text(failure.title).foregroundStyle(Ink.danger)
-            Text(failure.message).foregroundStyle(Ink.muted)
-            if [.cookies,.network,.service].contains(failure.kind) {
-                Button(failure.actionTitle) { NotificationCenter.default.post(name:.showShouxiaWindow,object:nil); store.showSettings=true }.buttonStyle(.plain).foregroundStyle(Ink.mint).accessibilityLabel(failure.actionTitle)
-            }
-            DisclosureGroup("原始错误") {
-                Text(raw).font(TypeStyle.body(10)).textSelection(.enabled).fixedSize(horizontal:false,vertical:true)
-                Button("复制错误") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(raw,forType:.string) }.buttonStyle(.plain).accessibilityLabel("复制原始错误")
-            }.foregroundStyle(Ink.muted)
-        }.font(TypeStyle.body(11))
+        Text(failure.title).font(TypeStyle.body(11)).foregroundStyle(Ink.danger)
+            .fixedSize(horizontal:false,vertical:true).textSelection(.enabled)
     }
 }
 struct SubmissionRow:View {
@@ -41,7 +32,6 @@ struct SubmissionRow:View {
             else { Image(systemName:"exclamationmark.circle").foregroundStyle(Ink.danger).frame(width:46,height:46) }
             VStack(alignment:.leading,spacing:7) {
                 Text(title).font(TypeStyle.medium(13))
-                if intent.state == .syncing || intent.state == .cancellingCookies { Text("仅读取当前网站的会话信息，尚未提交下载；不代表账号已登录。").foregroundStyle(Ink.muted) }
                 Text(intent.summary).foregroundStyle(Ink.muted)
                 Text(intent.link.originalURL).lineLimit(2).textSelection(.enabled)
                 if intent.link.wasNormalized { Text("已转换为：\(intent.link.canonicalURL)").foregroundStyle(Ink.muted).textSelection(.enabled) }
@@ -52,7 +42,7 @@ struct SubmissionRow:View {
                 VStack(spacing:12) {
                     Button("重试") { Task { await store.retrySubmission(intent) } }.accessibilityLabel("重试失败的提交").disabled(store.isSubmitting || store.isConfiguring)
                     if store.browserCookies.enabled, intent.browserSessionRequested != false, DownloadFailure.classify(intent.error ?? "").kind == .cookies {
-                        Button("本次不读取浏览器重试") {Task {await store.retrySubmissionWithoutBrowser(intent)}}.accessibilityLabel("本次不读取浏览器信息并重试").disabled(store.isSubmitting || store.isConfiguring)
+                        Button("跳过浏览器重试") {Task {await store.retrySubmissionWithoutBrowser(intent)}}.accessibilityLabel("本次不读取浏览器信息并重试").disabled(store.isSubmitting || store.isConfiguring)
                     }
                     Button("移除") { store.dismissSubmission(intent.id) }.accessibilityLabel("移除失败的提交")
                 }.buttonStyle(.plain).foregroundStyle(Ink.mint)

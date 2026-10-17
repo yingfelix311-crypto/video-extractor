@@ -29,12 +29,8 @@ struct MainView: View {
             HStack(spacing:12) {
                 HStack(spacing:12) {
                     Image(systemName:"link").foregroundStyle(Ink.muted)
-                    TextField("粘贴视频链接",text:$input).textFieldStyle(.plain).font(TypeStyle.body(15)).focused($inputFocused).onSubmit(submit).accessibilityLabel("视频链接")
-                    if !input.isEmpty {
-                        Button { input=""; inputFocused=true } label: {
-                            Image(systemName:"xmark.circle.fill").frame(width:24,height:24).contentShape(Rectangle())
-                        }.buttonStyle(.plain).foregroundStyle(Ink.muted).help("清空视频链接").accessibilityLabel("清空视频链接")
-                    }
+                    TextField("粘贴视频链接",text:$input).textFieldStyle(.plain).font(TypeStyle.body(15)).focused($inputFocused).onSubmit(submit).onExitCommand(perform:clearInput).accessibilityLabel("视频链接")
+                    ClearLinkButton(isEmpty:input.isEmpty,label:"清空视频链接",action:clearInput)
                     Button("粘贴") { input=NSPasteboard.general.string(forType:.string) ?? ""; inputFocused=true }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                 }.padding(.horizontal,16).frame(height:58).background(Ink.surface).clipShape(RoundedRectangle(cornerRadius:12))
                     .overlay(RoundedRectangle(cornerRadius:12).stroke(dragOver ? Ink.mint : Ink.line,lineWidth:1))
@@ -54,7 +50,7 @@ struct MainView: View {
             if let notice=store.notice {
                 HStack { Text(notice).font(TypeStyle.body(11)).foregroundStyle(Ink.mint); Spacer(); GlyphButton(symbol:"xmark",title:"关闭成功提示") { store.notice=nil } }.padding(.bottom,12)
             }
-            if let message=store.message {
+            if let message=standaloneMessage {
                 HStack(alignment:.top) { FailureDetails(raw:message,store:store); Spacer(); GlyphButton(symbol:"xmark",title:"关闭提示") { store.message=nil } }
                     .foregroundStyle(Ink.danger).padding(10).background(Ink.surface).clipShape(RoundedRectangle(cornerRadius:9)).padding(.bottom,12)
             }
@@ -130,6 +126,12 @@ struct MainView: View {
     private var visibleItems:[DownloadItem] {
         TaskList.visible(active: store.items, pending: store.pending, history: store.completed, audioOnly: mediaFilter == "全部媒体" ? nil : mediaFilter == "音频", filter: filter)
     }
+    private var standaloneMessage:String? {
+        guard let message=store.message,
+              !visibleSubmissions.contains(where:{$0.error==message}),
+              !visibleItems.contains(where:{$0.isFailed && ($0.error ?? $0.msg)==message}) else {return nil}
+        return message
+    }
     private var failedCount:Int { store.completed.filter(\.isFailed).count + store.submissions.filter { $0.state == .failed }.count }
     private var visibleSubmissions:[SubmissionIntent] {
         store.submissions.filter { intent in
@@ -141,6 +143,7 @@ struct MainView: View {
             store.completed.contains { $0.url == item.url } && store.canRemoveHistory(item)
         }.map(\.url))
     }
+    private func clearInput() { input=""; inputFocused=true }
     private func submit() {
         let captured=input
         Task { if await store.submit(captured,quality:quality,audioOnly:audioOnly), input==captured { input=""; filter="全部" } }
@@ -154,6 +157,18 @@ struct MainView: View {
             _=provider.loadObject(ofClass:NSString.self) { value,_ in guard let value=value as? String else{return}; Task{@MainActor in input=value; inputFocused=true} }; return true
         }
         return false
+    }
+}
+struct ClearLinkButton:View {
+    let isEmpty:Bool
+    let label:String
+    let action:()->Void
+    var body:some View {
+        Button("清空",action:action)
+            .buttonStyle(.plain).font(TypeStyle.medium(11)).foregroundStyle(Ink.mint)
+            .frame(minWidth:44,minHeight:30).contentShape(Rectangle())
+            .disabled(isEmpty).opacity(isEmpty ? 0.35 : 1)
+            .help("清空链接 · Esc").accessibilityLabel(label)
     }
 }
 struct FormatControl:View {
@@ -211,11 +226,7 @@ struct QuickPanel:View {
                     TextField("粘贴视频链接",text:$input)
                         .textFieldStyle(.plain).font(TypeStyle.body(13)).focused($focused)
                         .onSubmit(submit).accessibilityLabel("快捷视频链接")
-                    if !input.isEmpty {
-                        Button { input=""; focused=true } label: {
-                            Image(systemName:"xmark.circle.fill").frame(width:24,height:24).contentShape(Rectangle())
-                        }.buttonStyle(.plain).foregroundStyle(Ink.muted).help("清空视频链接").accessibilityLabel("清空快捷视频链接")
-                    }
+                    ClearLinkButton(isEmpty:input.isEmpty,label:"清空快捷视频链接",action:clearInput)
                 }.padding(.horizontal,12).frame(height:38)
                     .background(Ink.surface).clipShape(RoundedRectangle(cornerRadius:10))
                 Button(action:submit) {
@@ -251,12 +262,15 @@ struct QuickPanel:View {
                 }.font(TypeStyle.body(10)).foregroundStyle(Ink.muted)
             }
         }.padding(14).frame(width:320).foregroundStyle(Ink.dark).background(Ink.paper).preferredColorScheme(.dark)
-            .onAppear { focused=true; store.start() }.onExitCommand { QuickWindow.shared.hide(); dismiss() }
+            .onAppear { focused=true; store.start() }.onExitCommand {
+                if !input.isEmpty {clearInput()} else {QuickWindow.shared.hide(); dismiss()}
+            }
             .onReceive(NotificationCenter.default.publisher(for:Notification.Name("focusQuickInput"))) { _ in
                 focused=false
                 DispatchQueue.main.async { focused=true }
             }
     }
+    private func clearInput() {input="";focused=true}
     private func submit() {
         let captured=input
         Task { if await store.submit(captured,quality:quality,audioOnly:audioOnly),input==captured { input="" } }

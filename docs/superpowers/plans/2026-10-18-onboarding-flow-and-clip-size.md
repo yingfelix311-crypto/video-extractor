@@ -22,7 +22,7 @@
 
 Files: BrowserSessionStore.swift, Store.swift, DownloadSettings.swift, DownloadPolicy.swift, Submission.swift/SubmissionRow.swift, new QuickStartView.swift; tests BrowserSessionTests.swift/CoreTests.swift; help in ShouxiaApp.swift. Parent owns these.
 
-- [ ] Controlled read-only extraction using a fresh empty jar, imported selected-browser jar, and same request route. Record only counts/flags/outcomes. Check manual global cookie status separately.
+- [x] Controlled read-only extraction using a fresh empty jar, imported selected-browser jar, and same request route. Record only counts/flags/outcomes. Check manual global cookie status separately.
 - [x] Add failing tests showing that guest Cookie data is described as read-but-login-unverified, and a one-task browser bypass issues no browser read, preserves permanent selection and original request options/destination. Runtime validation must still precede real credential reads.
 - [x] Extend submit with optional useBrowserSession override, add retrySubmissionWithoutBrowser, and expose explicit local session-reading check. Never automatically switch browser/profile or claim verified login.
 - [x] Rewrite settings and errors; put manual import/proxy/header controls in advanced disclosure. Add QuickStartView and update help to explain paste, formats, saved files, optional site session, errors, clips, dependencies.
@@ -61,3 +61,10 @@ Files: ClipEditor.swift, ClipExporter.swift, new ClipCanvas.swift, clip tests an
 - Three fresh jars without browser import all failed this exact Douyin video via mobile-share fallback. No Cookie values emitted. Chrome Profile 1 metadata identified one empty-name row rejected by prior serializer. Synthetic downstream loader roundtrip proves valid nameless Netscape behavior. Actual Chrome import vs fresh jar comparison still pending.
 - Current UI validation blocker: native startup opens protected Downloads session directory and kernel open remains suspended; tccd confirms old AllFiles code requirement mismatch after ad-hoc update. Under prior user authorization old row removed; system app picker located current app but Open remains disabled via automation. User asked to complete adding current app and any OS authentication. No new signing/security workaround attempted.
 - Do not claim end-to-end completion. Installed clip UI/export, actual browser A/B and post-binding download remain unchecked. Public evidence/report maintained at /Users/felix/Documents/ChatGPT/个人工具/stacher-comparison-2026-10-18/implementation.html.
+
+## Later evidence and scope update
+
+- After DownloadsFolder authorization was granted at 02:56:10, native Chrome extraction worked without an AllFiles entry. Earlier broad claim that this Chrome flow needed full-disk binding is corrected. Current native status confirmed Google Chrome; selected preferences Chrome/Profile1.
+- Alternating same-video metadata test: fresh_no_import_1 failed, selected_browser_import_1 succeeded, fresh_no_import_2 failed, selected_browser_import_2 succeeded. Both successes use mobile-share fallback. No login claim; desktop account-status fetch errored. Native download67,331,560bytes720x1280h264/AAC233.430s matched prior SHA256 and automatic jar count returned0.
+- User stopped further clip validation/export experiments. Remaining old-plan clip UI verification is canceled by that explicit instruction. Subsequent preview zoom is implemented/compiled/reviewed, not experimentally verified.
+- Follow-up completed under docs/superpowers/plans/2026-10-18-simple-errors-clear-and-preview.md: visible text clear+Esc, one-line errors/no automatic settings, bounded continuous preview size. Newest app1.3.1(6); current public report supersedes intermediate pending states.

@@ -117,6 +117,7 @@ actor SessionBackendFixture:BackendServing {
         expect(!(await enabled.submit("https://www.douyin.com/video/4",quality:"best",audioOnly:false)),"permission error is actionable")
         expect(await backend.count()==before,"no add after permission failure")
         expect(enabled.message?.contains("Cookie")==true,"permission recovery shown")
+        expect(!enabled.showSettings,"browser read failure stays in the download flow without opening settings")
         await reader.configure(delayed:true)
         let cancelling=Task {await enabled.submit("https://www.douyin.com/video/5",quality:"best",audioOnly:false)}
         while await reader.count()<4 {await Task.yield()}
