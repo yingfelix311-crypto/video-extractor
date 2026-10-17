@@ -3,7 +3,7 @@ import Foundation
 struct BrowserCookiePreferences: Codable, Equatable, Sendable {
     var enabled = false
     var browser: BrowserKind = .chrome
-    var profile = "Default"
+    var profile = ""
 }
 
 protocol TaskCookieServing: Sendable {

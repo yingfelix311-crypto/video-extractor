@@ -88,6 +88,7 @@ actor SessionBackendFixture:BackendServing {
         let exports=ExportRegistry.records;defer {ExportRegistry.records=exports}
         let backend=SessionBackendFixture(), reader=SessionReaderFixture()
         let store=DownloadStore(backend:backend,defaults:defaults,cookieReader:reader,cookieFiles:files)
+        expect(store.browserCookies.profile.isEmpty,"fresh preferences leave profile selection to available browser profiles")
         store.connection = .ready;store.networkEnabled=true
         expect(await store.submit("https://www.douyin.com/video/1",quality:"best",audioOnly:false),"disabled reading preserves downloads")
         expect(await reader.count()==0,"disabled means zero reads")
