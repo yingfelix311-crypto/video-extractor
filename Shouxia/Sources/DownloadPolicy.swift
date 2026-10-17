@@ -55,6 +55,9 @@ struct DownloadFailure: Sendable, Equatable {
         func has(_ terms: [String]) -> Bool { terms.contains(where: text.contains) }
         if has(["cancelled", "canceled", "取消"]) { return .init(kind: .cancelled, title: "下载已取消", message: "确认链接和参数后可重新提交。", actionTitle: "重试") }
         if has(["unsupported url", "unsupported link", "不支持的链接"]) { return .init(kind: .unsupportedLink, title: "链接暂不受支持", message: "请复制单个视频的分享链接，或更新下载引擎。", actionTitle: "检查链接") }
+        if text.contains("无法读取 safari cookie"),text.contains("完全磁盘访问权限") {
+            return .init(kind:.cookies,title:"Safari 访问权限不足",message:"macOS 尚未允许本应用读取 Safari Cookie。请为 Video Extractor 开启完全磁盘访问权限，退出并重新打开软件后重试。",actionTitle:"管理 Cookie")
+        }
         if has(["cookie", "sign in", "login required", "log in", "登录", "浏览器配置", "浏览器会话", "钥匙串"]) { return .init(kind: .cookies, title: "需要有效 Cookie", message: "请在所选浏览器配置中登录网站，检查自动同步及系统授权后重试；也可关闭自动同步，手动导入自己的 Netscape Cookie 文件。", actionTitle: "管理 Cookie") }
         if has(["requested format", "format is not available", "no video formats", "格式不可用"]) { return .init(kind: .format, title: "所选格式不可用", message: "尝试原始最佳格式或降低清晰度。", actionTitle: "调整参数") }
         if has(["permission denied", "operation not permitted", "read-only file", "权限"]) { return .init(kind: .permission, title: "无法写入文件", message: "请重新选择可写入的保存目录。", actionTitle: "选择目录") }

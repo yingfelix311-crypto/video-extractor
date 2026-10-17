@@ -34,6 +34,10 @@ import Foundation
         check(configured["format"] as? String == "mp4" && configured["ytdl_options_overrides"] != nil, "explicit format and network options")
         check(DownloadFailure.classify("Unsupported URL: https://www.douyin.com/jingxuan").kind == .unsupportedLink, "unsupported route separate")
         check(DownloadFailure.classify("Fresh cookies are needed").kind == .cookies, "fresh cookie diagnosis")
+        let safariAccess=DownloadFailure.classify("无法读取 Safari Cookie。请在系统设置 → 隐私与安全性 → 完全磁盘访问权限中允许本应用，重新打开应用后重试，或关闭自动读取。")
+        check(safariAccess.title == "Safari 访问权限不足", "Safari OS denial must not be presented as expired login")
+        check(safariAccess.message.contains("完全磁盘访问权限") && safariAccess.message.contains("重新打开"), "Safari failure explains permission and restart")
+        check(safariAccess.kind == .cookies && safariAccess.actionTitle == "管理 Cookie", "Safari failure retains reachable settings action")
         check(DownloadFailure.classify("HTTP Error 403: Forbidden").kind == .network, "403 alone is not cookie diagnosis")
         for (raw, kind) in [("Requested format is not available", DownloadFailure.Kind.format), ("Permission denied", .permission), ("下载服务未启动", .service), ("cancelled", .cancelled), ("unrecognized error", .unknown)] {
             check(DownloadFailure.classify(raw).kind == kind, "failure category: \(raw)")
