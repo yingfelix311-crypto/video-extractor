@@ -60,7 +60,7 @@ struct EngineSettings:View {
                     Text(updater.status).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                     HStack {
                         Button("立即检查更新") { Task { await store.checkUpdates() } }.disabled(busy)
-                        Button("检查后台依赖") { Task { await store.checkDiagnostics() } }.disabled(busy)
+                        Button("检查后台依赖") { Task { await store.checkDiagnostics() } }.disabled(store.isConfiguring)
                     }
                     if !store.diagnostics.isEmpty { Text(store.diagnostics).font(TypeStyle.body(11)).textSelection(.enabled) }
                     Divider()
