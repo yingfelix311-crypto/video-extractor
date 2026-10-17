@@ -56,3 +56,10 @@ bash Shouxia/install.sh
 视频／音频选项同时筛选对应任务，支持全部、进行中和已完成。点击“管理记录”可勾选或全选当前列表的历史记录，批量移除时保留文件；切换分类会清空勾选。保存失败的记录也可以移除，下载缓存和已保存文件均保留；仅正在写入文件时暂时禁止移除。
 
 快捷入口为 320pt 两行面板：链接输入及提取按钮、保存文件夹及更改操作。回车可提交，沿用主窗口选择的格式与画质。错误或连接异常时才额外显示提示。配色、字体与控件样式沿用原版。
+
+
+## 1.1.0 下载可靠性更新
+
+支持抖音精选页链接规范化、手动 Cookie 管理、代理与请求头、原始最佳格式、修正后重试、解析取消与未决任务核对、独立失败筛选和快捷输入反馈。MP4 选项选择源格式，不代表转码。需要登录态的平台仍需有效 Cookie。
+
+测试入口：`test.sh`、`test-backend.sh`、`test-runtime.sh`、`test-submissions.sh`、`test-store.sh`、`test-clips.sh`、`test-clip-timeline.sh`、`test-update.sh`。完整验证记录见 `docs/superpowers/specs/2026-10-18-short-video-validation.md`。

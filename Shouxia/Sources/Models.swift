@@ -12,10 +12,13 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
         case mediaID = "id"
         case downloadType = "download_type"
         case format
+        case storedOverrides = "ytdl_options_overrides"
         case title, url, status, percent, speed, eta, size, filename, folder, error, msg, quality
     }
     let downloadType: String?
     let format: String?
+    private let storedOverrides: StoredNetworkOverrides?
+    var ytdlOptionsOverrides: [String:String]? { storedOverrides?.values }
     let title: String
     let url: String
     let status: String
@@ -51,14 +54,34 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
     }
 }
 
+private struct StoredNetworkOverrides: Decodable, Sendable {
+    let values:[String:String]
+    enum CodingKeys:String,CodingKey {case proxy,referer,user_agent}
+    init(from decoder:Decoder)throws {
+        let container=try decoder.container(keyedBy:CodingKeys.self)
+        var known=[String:String]()
+        for key in [CodingKeys.proxy,.referer,.user_agent] {
+            if let value=try? container.decode(String.self,forKey:key) {known[key.rawValue]=value}
+        }
+        values=known
+    }
+}
+
 struct History: Decodable, Sendable {
     let done: [DownloadItem]
     let queue: [DownloadItem]
     let pending: [DownloadItem]
 }
 
+struct ResolvedLink: Codable, Sendable {
+    let originalURL: String
+    let canonicalURL: String
+    var wasNormalized: Bool { originalURL != canonicalURL }
+}
+
 enum LinkParser {
-    static func extract(_ text: String) throws -> String {
+    static func extract(_ text: String) throws -> String { try resolve(text).canonicalURL }
+    static func resolve(_ text: String) throws -> ResolvedLink {
         let regex = try NSRegularExpression(pattern: #"https?://[^\s<>\"“”]+"#, options: .caseInsensitive)
         let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
         guard matches.count == 1, let range = Range(matches[0].range, in: text) else {
@@ -74,7 +97,18 @@ enum LinkParser {
         guard h != "localhost", !h.hasSuffix(".localhost"), !h.hasSuffix(".local"), h.contains("."), !h.contains(":"), !privateIPv4 else {
             throw AppError.message("请使用公开视频网站链接，不能下载本机或局域网地址。")
         }
-        return url.absoluteString
+        var canonical = url.absoluteString
+        if ["douyin.com", "www.douyin.com"].contains(host), ["", "/", "/jingxuan", "/jingxuan/"].contains(parts.path) {
+            let ids = (parts.queryItems ?? []).filter { $0.name == "modal_id" }
+            if !ids.isEmpty {
+                guard ids.count == 1, let value = ids[0].value, (1...30).contains(value.count),
+                      value.utf8.allSatisfy({ (48...57).contains($0) }) else {
+                    throw AppError.message("抖音链接中的 modal_id 无效或重复，请复制单个视频的分享链接。")
+                }
+                canonical = "https://www.douyin.com/video/" + value
+            }
+        }
+        return ResolvedLink(originalURL: link, canonicalURL: canonical)
     }
 }
 
@@ -100,11 +134,13 @@ struct APIResult: Decodable {
 
 
 enum DownloadRequest {
-    static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil) throws -> Data {
+    static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil, options: DownloadOptions = DownloadOptions()) throws -> Data {
+        let options = try options.validated()
         let isDirectMedia = ["mp4", "webm", "mov", "m4v"].contains(URL(string: url)?.pathExtension.lowercased() ?? "")
         let selectedQuality = !isDirectMedia && ["1080", "720", "480", "best"].contains(quality) ? quality : "best"
-        var payload: [String: Any] = ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : (isDirectMedia ? "any" : "mp4"), "auto_start": true, "playlist_item_limit": 1]
+        var payload: [String: Any] = ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : options.videoFormat, "auto_start": true, "playlist_item_limit": 1]
         if let folder { payload["folder"] = folder }
+        if !options.ytdlOverrides.isEmpty { payload["ytdl_options_overrides"] = options.ytdlOverrides }
         return try JSONSerialization.data(withJSONObject: payload)
     }
 }
@@ -134,10 +170,10 @@ struct ActionRequest {
 
 
 enum TaskList {
-    static func visible(active: [DownloadItem], pending: [DownloadItem], history: [DownloadItem], audioOnly: Bool, filter: String) -> [DownloadItem] {
-        let candidates = filter == "进行中" ? active + pending : filter == "已完成" ? history.filter(\.isComplete) : active + pending + history
+    static func visible(active: [DownloadItem], pending: [DownloadItem], history: [DownloadItem], audioOnly: Bool? = nil, filter: String) -> [DownloadItem] {
+        let candidates = filter == "进行中" ? active + pending : filter == "已完成" ? history.filter(\.isComplete) : filter == "失败" ? history.filter(\.isFailed) : active + pending + history
         var seen = Set<String>()
-        return candidates.filter { $0.isAudio == audioOnly && seen.insert($0.url).inserted }
+        return candidates.filter { (audioOnly == nil || $0.isAudio == audioOnly!) && seen.insert($0.url).inserted }
     }
 }
 

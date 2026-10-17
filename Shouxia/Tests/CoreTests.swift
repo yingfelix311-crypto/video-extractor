@@ -8,9 +8,47 @@ import Foundation
         for text in ["hello", "file:///tmp/a", "https:///missing", "http://localhost/test", "http://127.0.0.1", "http://192.168.0.1", "http://[::1]/", "https://a.com https://b.com"] {
             check((try? LinkParser.extract(text)) == nil, "must reject \(text)")
         }
+        let resolved = try LinkParser.resolve("分享 https://www.douyin.com/jingxuan?modal_id=123456")
+        check(resolved.originalURL == "https://www.douyin.com/jingxuan?modal_id=123456", "original retained")
+        check(resolved.canonicalURL == "https://www.douyin.com/video/123456" && resolved.wasNormalized, "jingxuan normalized")
+        check(try! LinkParser.extract("https://douyin.com/?modal_id=42") == "https://www.douyin.com/video/42", "root modal normalized")
+        for query in ["modal_id=", "modal_id=abc", "modal_id=-1", "modal_id=1&modal_id=2", "modal_id=" + String(repeating: "1", count: 31)] {
+            check((try? LinkParser.resolve("https://www.douyin.com/jingxuan?" + query)) == nil, "invalid modal rejected")
+        }
+        for link in ["https://foreign.com/jingxuan?modal_id=123", "https://www.douyin.com/live?modal_id=123", "https://www.douyin.com/slides/123?modal_id=123", "https://v.douyin.com/abc/"] {
+            check(try! LinkParser.resolve(link).canonicalURL == link, "non video routes preserved")
+        }
+        let options = try DownloadOptions(videoFormat: "mp4", proxy: "http://localhost:7890", referer: "https://www.douyin.com/", userAgent: "Browser").validated()
+        check(options.proxy == "http://host.lima.internal:7890", "Docker localhost mapped")
+        check(options.ytdlOverrides["proxy"] == options.proxy && options.ytdlOverrides["referer"] == options.referer && options.ytdlOverrides["user_agent"] == "Browser", "network override keys")
+        for proxy in ["file:///tmp/a", "http://user:secret@example.com:80", "http://example.com?a=b", "http://example.com/#fragment"] {
+            check((try? DownloadOptions(proxy: proxy).validated()) == nil, "unsafe proxy rejected")
+        }
+        check((try? DownloadOptions(userAgent: "Agent\r\nInjected: yes").validated()) == nil, "header injection rejected")
+        check((try? DownloadOptions(referer: "http://localhost/").validated()) == nil, "private referer rejected")
+        check((try? DownloadOptions(videoFormat: "exe").validated()) == nil, "format allowlist")
+        check((try? DownloadOptions(referer: "prefix https://example.com/").validated()) == nil, "referer must be a URL rather than share text")
+        check(try! JSONDecoder().decode(ResolvedLink.self, from: JSONEncoder().encode(resolved)).canonicalURL == resolved.canonicalURL, "resolved link persistence")
+        check(try! JSONDecoder().decode(DownloadOptions.self, from: JSONEncoder().encode(options)) == options, "options persistence")
+        let configured = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "best", audioOnly: false, options: options)) as! [String: Any]
+        check(configured["format"] as? String == "mp4" && configured["ytdl_options_overrides"] != nil, "explicit format and network options")
+        check(DownloadFailure.classify("Unsupported URL: https://www.douyin.com/jingxuan").kind == .unsupportedLink, "unsupported route separate")
+        check(DownloadFailure.classify("Fresh cookies are needed").kind == .cookies, "fresh cookie diagnosis")
+        check(DownloadFailure.classify("HTTP Error 403: Forbidden").kind == .network, "403 alone is not cookie diagnosis")
+        for (raw, kind) in [("Requested format is not available", DownloadFailure.Kind.format), ("Permission denied", .permission), ("下载服务未启动", .service), ("cancelled", .cancelled), ("unrecognized error", .unknown)] {
+            check(DownloadFailure.classify(raw).kind == kind, "failure category: \(raw)")
+        }
+        for url in ["https://example.com/movie.webm", "https://example.com/movie.mov"] {
+            let explicitMP4 = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: url, quality: "720", audioOnly: false, options: DownloadOptions(videoFormat: "mp4"))) as! [String: Any]
+            check(explicitMP4["format"] as? String == "mp4" && explicitMP4["quality"] as? String == "best", "direct media honors explicit MP4 while retaining source quality")
+        }
+        check(DownloadFailure.classify("Connection refused by upstream").kind == .network, "generic refused connection is network")
+        check(DownloadFailure.classify("HTTP 503 service unavailable").kind == .network, "remote unavailable is network")
+        check(DownloadFailure.classify("Connection refused at http://127.0.0.1:8081").kind == .service, "known local backend failure")
+        check(DownloadFailure.classify("Backend offline").kind == .service, "explicit backend offline")
         let videoBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "480", audioOnly: false)) as! [String: Any]
         check(videoBody["quality"] as? String == "480", "480p must be preserved")
-        check(videoBody["format"] as? String == "mp4", "video format")
+        check(videoBody["format"] as? String == "any", "video format")
         let tagged = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "720", audioOnly: false, folder: "VideoExtractor/test-token")) as! [String: Any]
         check(tagged["folder"] as? String == "VideoExtractor/test-token", "server folder preserves destination identity across URL canonicalization")
         for url in ["https://media.w3.org/2010/05/sintel/trailer.mp4", "https://example.com/movie.WEBM?token=abc", "https://example.com/file.mov", "https://example.com/file.m4v"] {
@@ -26,6 +64,9 @@ import Foundation
         check(directAudio["format"] as? String == "mp3", "direct audio still converts to MP3")
         let raw = #"{"done":[{"id":"a","title":"Title","url":"https://youtu.be/a","status":"finished","percent":100,"size":123,"filename":"a.mp4"}],"queue":[],"pending":[]}"#.data(using: .utf8)!
         let history = try JSONDecoder().decode(History.self, from: raw)
+        let mixedOverrides=Data(#"{"id":"x","title":"X","url":"https://example.com/x","status":"error","ytdl_options_overrides":{"proxy":"http://proxy.example:7890","http_headers":{"X-Test":"fixture"},"retries":3}}"#.utf8)
+        let mixed=try JSONDecoder().decode(DownloadItem.self,from:mixedOverrides)
+        check(mixed.ytdlOptionsOverrides?["proxy"]=="http://proxy.example:7890","unrelated nested overrides do not break whole history")
         let item = history.done.first!
         check(item.id == item.url, "UI identity must use URL rather than extractor id")
         for action in DownloadAction.allCases {
@@ -56,6 +97,8 @@ import Foundation
         check(TaskList.visible(active: [queuedAudio], pending: [], history: [item], audioOnly: true, filter: "全部").count == 1, "audio tab excludes video history")
         check(TaskList.visible(active: [queuedAudio], pending: [], history: [item], audioOnly: false, filter: "进行中").isEmpty, "status and media filters combine")
         check(TaskList.visible(active: [], pending: [], history: [failedAudio], audioOnly: true, filter: "已完成").isEmpty, "failed is not completed")
+        check(TaskList.visible(active: [queuedAudio], pending: [], history: [item], audioOnly: nil, filter: "全部").count == 2, "all media independent of submit mode")
+        check(TaskList.visible(active: [queuedAudio], pending: [], history: [failedAudio, item], audioOnly: nil, filter: "失败").count == 1, "failed filter")
         let removal = try JSONSerialization.jsonObject(with: HistoryRemoval.body(items: [queuedAudio, legacyAudio, failedAudio, item])) as! [String: Any]
         check(Set(removal["ids"] as! [String]) == Set([legacyAudio.url, item.url]), "only terminal selected records, deduplicated")
         check(removal["where"] as? String == "done" && removal["delete_files"] as? Bool == false, "bulk history removal preserves files and queue")

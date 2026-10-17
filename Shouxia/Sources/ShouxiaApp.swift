@@ -114,7 +114,7 @@ struct ShouxiaApp: App {
     static func showHelp() {
         let alert = NSAlert()
         alert.messageText = "Video Extractor · 本地影音下载"
-        alert.informativeText = "粘贴或拖入一个视频链接，选择清晰度后点击开始提取。可选择保存文件夹，已提交任务保持原位置。\n\n点击菜单栏图标或主窗口的小粽子，可打开快捷输入框。退出应用不会中断后台下载；如需释放后台内存，请使用桌面 MeTube视频下载 文件夹中的停止文件。\n\n第一版使用这台 Mac 已安装的 MeTube 环境。平台可能要求登录，不能保证所有链接均可下载。"
+        alert.informativeText = "粘贴或拖入分享文字或视频链接，选择视频/音频与画质后提取。抖音精选页会自动转换为标准视频地址。解析时可停止并核对；超时后不要重复提交未决任务。\n\n任务列表可独立筛选媒体类型和失败状态。失败时可修正链接、画质和格式后重试；默认保留原始最佳格式，MP4 源格式不等于转码。\n\n下载设置中可手动导入 Netscape Cookie 文件、设置代理与请求头、检查后台依赖。Cookie 需由你提供，有效性由网站决定。快捷输入会显示参数和提交结果。\n\n已提交任务保留原保存位置；完成后可打开文件、在 Finder 中显示或截取片段。退出应用不会中断后台下载。"
         alert.addButton(withTitle: "知道了")
         alert.runModal()
     }

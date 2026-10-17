@@ -41,6 +41,11 @@ struct ExportRecord: Codable {
     var destination: String
     var exportedPath: String?
     var generation: String? = UUID().uuidString
+    var originalURL: String?
+    var canonicalURL: String?
+    var quality: String?
+    var audioOnly: Bool?
+    var options: DownloadOptions?
 }
 
 enum ExportRegistry {

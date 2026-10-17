@@ -22,28 +22,65 @@ enum ConnectionState: Equatable {
     @Published var message: String?
     @Published var isSubmitting = false
     @Published var submittingURL: String?
+    @Published var notice: String?
+    @Published var showSettings = false
+    @Published private(set) var isConfiguring = false
+    @Published private(set) var hasCookies: Bool?
+    @Published private(set) var serviceVersion = "未检查"
+    @Published var settingsMessage: String?
+    @Published var diagnostics = "点击检查，查看后台和下载依赖状态。"
+    @Published var networkEnabled = false
+    @Published private(set) var runtimeRecoveryPending = false
+    @Published var options: DownloadOptions {
+        didSet { if let data=try? JSONEncoder().encode(options) { defaults.set(data,forKey:"downloadOptionsV2") } }
+    }
+    @Published private(set) var submissions: [SubmissionIntent] {
+        didSet { if let data=try? JSONEncoder().encode(submissions) { defaults.set(data,forKey:"submissionIntentsV2") } }
+    }
     @Published var destinationPath = UserDefaults.standard.string(forKey: "downloadDestination") ?? SafeDownloadPath.root.path
     @Published var exportErrors: [String: String] = [:]
     @Published private(set) var exporting: Set<String> = []
     let updater = EngineUpdater()
     private var maintenanceChecked = Date.distantPast
-    private let backend = Backend()
+    private let backend: any BackendServing
+    private let defaults: UserDefaults
+    private var submissionTask: Task<Void, Error>?
+    private var cancellationRequested = false
+    private var lastAcceptedURL: String?
     private var polling: Task<Void, Never>?
     private var reconnecting = false
     private var refreshing = false
+    private var lastRecoveryAttempt = Date.distantPast
+
+    init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard) {
+        self.backend=backend; self.defaults=defaults
+        options=defaults.data(forKey:"downloadOptionsV2").flatMap { try? JSONDecoder().decode(DownloadOptions.self,from:$0) } ?? DownloadOptions()
+        submissions=(defaults.data(forKey:"submissionIntentsV2").flatMap { try? JSONDecoder().decode([SubmissionIntent].self,from:$0) } ?? []).map {
+            var intent=$0
+            if intent.state == .parsing || intent.state == .cancelling { intent.state = .uncertain }
+            return intent
+        }
+    }
 
     func start() {
         guard polling == nil else { return }
         polling = Task { [weak self] in
-            await self?.updater.recoverIfNeeded()
             await self?.reconnect()
-            await self?.updater.refreshVersion()
+            if let self,self.connection.isReady,!self.runtimeRecoveryPending {
+                await self.updater.recoverIfNeeded()
+                await self.updater.refreshVersion()
+                await self.refreshSettings()
+            }
             while !Task.isCancelled {
                 let seconds = self?.items.isEmpty == false ? 2 : 5
                 try? await Task.sleep(for: .seconds(seconds))
                 guard !Task.isCancelled else { break }
+                if let self,self.runtimeRecoveryPending {
+                    if Date().timeIntervalSince(self.lastRecoveryAttempt)>30 {await self.reconnect()}
+                    continue
+                }
                 await self?.refresh()
-                if let self, !self.isSubmitting, Date().timeIntervalSince(self.maintenanceChecked) > 60 {
+                if let self,self.connection.isReady,!self.reconnecting, !self.isSubmitting, !self.isConfiguring, !self.submissions.contains(where: { $0.state == .uncertain }), Date().timeIntervalSince(self.maintenanceChecked) > 60 {
                     self.maintenanceChecked = Date()
                     await self.updater.recoverIfNeeded()
                     await self.updater.checkIfNeeded()
@@ -53,7 +90,7 @@ enum ConnectionState: Equatable {
     }
 
     func refresh() async {
-        guard !refreshing else { return }
+        guard !refreshing, !isConfiguring else { return }
         refreshing = true
         defer { refreshing = false }
         do {
@@ -62,6 +99,8 @@ enum ConnectionState: Equatable {
             completed = history.done.reversed()
             pending = history.pending
             connection = .ready
+            let folders=Set((items+completed+pending).compactMap(\.folder))
+            submissions.removeAll { folders.contains($0.id) && $0.state != .cancelling }
             await exportFinished()
         } catch {
             if connection != .starting { connection = .offline }
@@ -71,16 +110,21 @@ enum ConnectionState: Equatable {
     }
 
     func reconnect() async {
-        guard !reconnecting else { return }
+        guard !reconnecting, !isConfiguring, !isSubmitting, !updater.isUpdating else { return }
         reconnecting = true
         defer { reconnecting = false }
         connection = .connecting
         message = nil
-        await refresh()
-        guard connection != .ready else { return }
+        lastRecoveryAttempt=Date()
+        do {try await RuntimeSupport.recoverIfNeeded();runtimeRecoveryPending=false}
+        catch {runtimeRecoveryPending=true;message="后台恢复待重试：\(error.localizedDescription)"}
+        if !runtimeRecoveryPending {await refresh();if connection == .ready {return}}
         connection = .starting
         do {
-            try await Backend.boot()
+            try await Backend.startVirtualMachine()
+            try await RuntimeSupport.recoverIfNeeded()
+            runtimeRecoveryPending=false
+            try await Backend.startContainer()
             for _ in 0..<3 {
                 await refresh()
                 if connection == .ready { return }
@@ -88,35 +132,69 @@ enum ConnectionState: Equatable {
             }
             throw AppError.message("服务尚未就绪，请稍后重新连接。")
         } catch {
+            runtimeRecoveryPending=RuntimeSupport.recoveryRequired
             connection = .offline
             report(error)
         }
     }
 
-    func submit(_ text: String, quality: String, audioOnly: Bool) async -> Bool {
+    func submit(_ text: String, quality: String, audioOnly: Bool, options selectedOptions: DownloadOptions? = nil, destination: String? = nil) async -> Bool {
         guard !isSubmitting else { return false }
+        guard !isConfiguring else { message = "后台设置正在保存，请稍后提取。"; return false }
+        guard !reconnecting else {message="下载服务正在连接，请稍后提取。";return false}
+        guard !runtimeRecoveryPending else {message="后台恢复尚未完成，请先重新连接。";return false}
+        guard !submissions.contains(where:{$0.state == .uncertain || $0.state == .cancelling}) else {message="请先停止并核对未决任务，再提交新链接。";return false}
         guard !updater.isUpdating else { message = "下载引擎正在更新，完成后即可提取。"; return false }
         guard connection == .ready else { message = "下载服务尚未连接，请先重新连接。"; return false }
         do {
-            let url = try LinkParser.extract(text)
-            guard !exporting.contains(url), !items.contains(where: { $0.url == url }), !pending.contains(where: { $0.url == url }) else {
+            let link = try LinkParser.resolve(text)
+            let url = link.canonicalURL
+            let requestOptions = try (selectedOptions ?? options).validated()
+            guard requestOptions.ytdlOverrides.isEmpty || networkEnabled else { message="请先在设置中启用并保存网络参数。";showSettings=true;return false }
+            guard !submissions.contains(where: { $0.link.canonicalURL == url && $0.state != .failed }),
+                  !exporting.contains(url), !items.contains(where: { $0.url == url }), !pending.contains(where: { $0.url == url }) else {
                 message = "这个链接已有任务正在处理，请等待完成。"; return false
             }
-            let selectedDestination = destinationPath
+            let selectedDestination = destination ?? destinationPath
             let taskFolder = "VideoExtractor/" + UUID().uuidString
             isSubmitting = true
             submittingURL = url
             message = nil
-            defer { isSubmitting = false; submittingURL = nil }
+            notice = nil
+            cancellationRequested = false
+            lastAcceptedURL = nil
+            submissions.removeAll { $0.link.canonicalURL == url && $0.state == .failed }
+            submissions.append(SubmissionIntent(id:taskFolder,link:link,quality:quality,audioOnly:audioOnly,options:requestOptions,destination:selectedDestination,createdAt:Date(),state:.parsing))
+            defer { isSubmitting = false; submittingURL = nil; submissionTask=nil }
             // Persist intent before the request: a timeout or app exit must not lose
             // the destination of a task the server already accepted.
             var records = ExportRegistry.records
-            records[taskFolder] = ExportRecord(destination: selectedDestination)
+            records[taskFolder] = ExportRecord(destination: selectedDestination,originalURL:link.originalURL,canonicalURL:link.canonicalURL,quality:quality,audioOnly:audioOnly,options:requestOptions)
             ExportRegistry.records = records
             exportErrors[taskFolder] = nil
-            try await backend.post("add", body: DownloadRequest.body(url: url, quality: quality, audioOnly: audioOnly, folder: taskFolder))
-            await refresh()
-            return true
+            let body=try DownloadRequest.body(url:url,quality:quality,audioOnly:audioOnly,folder:taskFolder,options:requestOptions)
+            let task=Task { try await backend.post("add",body:body) }
+            submissionTask=task
+            do {
+                try await task.value
+                await refresh()
+                guard !cancellationRequested else { return false }
+                if submissions.contains(where: { $0.id == taskFolder }) {
+                    setSubmission(taskFolder,state:.uncertain,error:"后台已响应，尚未确认任务。请先核对，不要重复提交。")
+                    return false
+                }
+                lastAcceptedURL=(items+pending+completed).first(where:{$0.folder==taskFolder})?.url
+                notice=link.wasNormalized ? "已转换抖音页面链接，并创建下载任务。" : "下载任务已创建，可在下方查看进度。"
+                return true
+            } catch {
+                await refresh()
+                // The cancellation owner removes the intent only after successful reconciliation.
+                if cancellationRequested { return false }
+                let unresolved=(error is URLError || error is CancellationError || !connection.isReady)
+                setSubmission(taskFolder,state:unresolved ? .uncertain : .failed,error:error.localizedDescription)
+                report(error)
+                return false
+            }
         } catch {
             report(error)
             await refresh()
@@ -125,14 +203,62 @@ enum ConnectionState: Equatable {
     }
 
     func cancel(_ item: DownloadItem) async { await perform(.cancel, item: item) }
-    func retry(_ item: DownloadItem) async { await perform(.retry, item: item) }
+    func originalURL(for item: DownloadItem) -> String {
+        ExportRegistry.records[ExportRegistry.recordKey(for:item.url,folder:item.folder)]?.originalURL ?? item.url
+    }
+    func retryOptions(for item:DownloadItem) -> DownloadOptions {
+        if let saved=ExportRegistry.records[ExportRegistry.recordKey(for:item.url,folder:item.folder)]?.options {return saved}
+        let network=item.ytdlOptionsOverrides ?? [:]
+        return DownloadOptions(videoFormat:["mp4","any"].contains(item.format ?? "") ? item.format! : "any",proxy:network["proxy"] ?? "",referer:network["referer"] ?? "",userAgent:network["user_agent"] ?? "")
+    }
+    @discardableResult func retry(_ item: DownloadItem, link: String? = nil, quality: String? = nil, audioOnly: Bool? = nil, options selected: DownloadOptions? = nil) async -> Bool {
+        let record=ExportRegistry.records[ExportRegistry.recordKey(for:item.url,folder:item.folder)]
+        let selectedOptions=selected ?? retryOptions(for:item)
+        let accepted=await submit(link ?? originalURL(for:item),quality:quality ?? record?.quality ?? item.quality ?? "best",audioOnly:audioOnly ?? record?.audioOnly ?? item.isAudio,options:selectedOptions,destination:record?.destination ?? destinationPath)
+        // Same-URL add can already have completed by now. Never delete that new done record.
+        if accepted, let newURL=lastAcceptedURL, newURL != item.url {
+            _ = await clearHistory(ids:[item.url])
+        }
+        return accepted
+    }
+    func retrySubmission(_ intent: SubmissionIntent) async {
+        guard intent.state == .failed else { return }
+        _ = await submit(intent.link.originalURL,quality:intent.quality,audioOnly:intent.audioOnly,options:intent.options,destination:intent.destination)
+    }
+    func dismissSubmission(_ id:String) {
+        submissions.removeAll { $0.id==id && $0.state == .failed }
+    }
+    private func setSubmission(_ id:String,state:SubmissionState,error:String?=nil) {
+        guard let index=submissions.firstIndex(where:{$0.id==id}) else {return}
+        submissions[index].state=state;submissions[index].error=error
+    }
+    func cancelSubmission(_ id:String? = nil) async {
+        guard !isConfiguring, !reconnecting, !runtimeRecoveryPending else { return }
+        let target=id.flatMap { key in submissions.first(where:{$0.id==key}) } ?? submissions.first(where:{$0.state == .parsing || $0.state == .uncertain})
+        guard let target else {return}
+        setSubmission(target.id,state:.cancelling)
+        if submittingURL == target.link.canonicalURL {cancellationRequested=true}
+        do {
+            // cancel-add invalidates in-flight extraction on the server, unlike cancelling only HTTP.
+            try await backend.cancelAdd()
+            if submittingURL == target.link.canonicalURL {
+                submissionTask?.cancel()
+            }
+            let history=try await backend.history()
+            let accepted=(history.queue+history.pending).filter {$0.folder==target.id}
+            for item in accepted { let request=try ActionRequest(.cancel,item:item);try await backend.post(request.route,body:request.body) }
+            submissions.removeAll {$0.id==target.id}
+            notice=accepted.isEmpty ? "已停止解析并核对后台；已完成的文件仍会保留。" : "已停止解析并取消刚创建的下载任务。"
+            await refresh()
+        } catch { setSubmission(target.id,state:.uncertain,error:"停止或核对未完成：\(error.localizedDescription)");report(error) }
+    }
     func startPending(_ item: DownloadItem) async { await perform(.start, item: item) }
     func canRemoveHistory(_ item: DownloadItem) -> Bool {
         item.isHistory && !exporting.contains(item.url)
     }
     func clear(_ item: DownloadItem) async { _ = await clearHistory(ids: [item.url]) }
     func clearHistory(ids: Set<String>) async -> Bool {
-        guard !updater.isUpdating, !isSubmitting else { return false }
+        guard !updater.isUpdating, !isSubmitting, !isConfiguring, !reconnecting, !runtimeRecoveryPending else { return false }
         let selected = completed.filter { ids.contains($0.url) && canRemoveHistory($0) }
         guard !selected.isEmpty else { return false }
         isSubmitting = true
@@ -158,6 +284,7 @@ enum ConnectionState: Equatable {
 
     private func perform(_ action: DownloadAction, item: DownloadItem) async {
         if updater.isUpdating { message = "引擎更新中，请稍后重试。"; return }
+        guard !isConfiguring, !reconnecting, !runtimeRecoveryPending else {message="后台正在配置或恢复，请稍后操作。";return}
         guard !isSubmitting else { message = "正在提交任务，请稍后重试。"; return }
         isSubmitting = true
         defer { isSubmitting = false }
@@ -173,9 +300,60 @@ enum ConnectionState: Equatable {
         UserDefaults.standard.set(destinationPath, forKey: "downloadDestination")
     }
     func checkUpdates() async {
-        guard !isSubmitting else { message = "正在提交任务，稍后检查更新。"; return }
+        guard !isSubmitting, !isConfiguring, !reconnecting, !runtimeRecoveryPending, !submissions.contains(where:{$0.state == .uncertain}) else { message = "请先完成提交、恢复或核对未决任务，再检查更新。"; return }
         await updater.checkIfNeeded(force: true)
         await refresh()
+    }
+    private var canConfigure: Bool {
+        connection.isReady && !reconnecting && !isSubmitting && !isConfiguring && !runtimeRecoveryPending && !updater.isUpdating && items.isEmpty && pending.isEmpty && !submissions.contains(where: { $0.state == .uncertain || $0.state == .parsing || $0.state == .cancelling })
+    }
+    func refreshSettings() async {
+        do {
+            hasCookies=try await backend.cookieStatus()
+            let version=try await backend.version()
+            serviceVersion="MeTube \(version.version) · yt-dlp \(version.engine)"
+            networkEnabled=(try? await RuntimeSupport.networkEnabled()) ?? false
+        } catch { settingsMessage="状态读取失败：\(error.localizedDescription)";hasCookies=nil }
+    }
+    func importCookies(_ data:Data) async {
+        guard canConfigure else { settingsMessage="请先完成下载、解析或引擎维护，再更改 Cookie。";return }
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {
+            try await backend.uploadCookies(data)
+            hasCookies=try await backend.cookieStatus()
+            settingsMessage="Cookie 已导入到本机下载服务；有效性由视频网站决定。"
+        } catch {settingsMessage=error.localizedDescription}
+    }
+    func removeCookies() async {
+        guard canConfigure else {settingsMessage="请先完成下载、解析或引擎维护，再移除 Cookie。";return}
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {try await backend.deleteCookies();hasCookies=try await backend.cookieStatus();settingsMessage="Cookie 已从下载服务移除。"}
+        catch {settingsMessage=error.localizedDescription}
+    }
+    @discardableResult func saveOptions(_ candidate:DownloadOptions) async -> Bool {
+        guard canConfigure else {settingsMessage="请先完成下载、解析或引擎维护，再保存设置。";return false}
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {
+            let validated=try candidate.validated()
+            if !validated.ytdlOverrides.isEmpty && !networkEnabled {
+                settingsMessage="正在备份并配置本机下载服务…"
+                try await RuntimeSupport.enableNetworkOptions()
+                networkEnabled=try await RuntimeSupport.networkEnabled()
+            }
+            options=validated
+            settingsMessage="设置已保存；新任务使用这些参数，已有任务保持原参数。"
+            await refresh()
+            return true
+        } catch {settingsMessage=error.localizedDescription;await refresh();return false}
+    }
+    func checkDiagnostics() async {
+        guard !isConfiguring else {return}
+        diagnostics="正在检查后台和依赖…"
+        do {diagnostics=try await RuntimeSupport.diagnostics();await refreshSettings()}
+        catch {diagnostics="检查未完成：\(error.localizedDescription)"}
     }
     func retryExport(_ item: DownloadItem) async {
         guard !isSubmitting, !exporting.contains(item.url), item.isComplete else { return }
