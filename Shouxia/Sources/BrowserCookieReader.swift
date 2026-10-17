@@ -136,6 +136,8 @@ struct NativeBrowserCookieReader: BrowserCookieReading {
     }
 
     private func database(_ file: URL, browser: BrowserKind, scope: CookieScope) throws -> [SessionCookie] {
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        guard attributes[.type] as? FileAttributeType == .typeRegular else { throw BrowserCookieError.corrupt }
         var db: OpaquePointer?
         guard sqlite3_open_v2(file.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK, let db else {
             if let db { sqlite3_close(db) }

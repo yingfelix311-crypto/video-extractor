@@ -2,10 +2,37 @@ import Foundation
 import SQLite3
 import CommonCrypto
 import CryptoKit
+import Darwin
 
 @main struct BrowserCookieTests {
  static func expectFailure(_ body: () throws -> Void) { do { try body(); fatalError("Expected rejection") } catch {} }
  static func expectReadFailure(_ body: () async throws -> [SessionCookie]) async { do { _ = try await body(); fatalError("Expected read rejection") } catch {} }
+ static func expectCorruptStore(_ reader: NativeBrowserCookieReader, browser: BrowserKind, profile: String, scope: CookieScope) async {
+  do {
+   _ = try await reader.read(browser: browser, profile: profile, scope: scope)
+   fatalError("Nonregular stores must be rejected before SQLite opens them")
+  } catch BrowserCookieError.corrupt {
+  } catch {
+   fatalError("Nonregular stores must fail as corrupt input, got \(error)")
+  }
+ }
+ static func expectBoundedFIFORejection(home: URL, browser: BrowserKind, profile: String) async throws {
+  // A child deadline also bounds this test if SQLite starts opening FIFOs again.
+  let child = Process()
+  child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+  child.arguments = ["--fifo-store", home.path, browser.rawValue, profile]
+  try child.run()
+  let deadline = ProcessInfo.processInfo.systemUptime + 3
+  while child.isRunning && ProcessInfo.processInfo.systemUptime < deadline {
+   try await Task.sleep(nanoseconds: 20_000_000)
+  }
+  if child.isRunning {
+   kill(child.processIdentifier, SIGKILL)
+   child.waitUntilExit()
+   fatalError("FIFO Cookie read exceeded its deadline")
+  }
+  precondition(child.terminationReason == .exit && child.terminationStatus == 0, "FIFO Cookie store must be rejected as corrupt input")
+ }
  static func sql(_ url: URL, _ text: String) throws {
   try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
   var db: OpaquePointer?; precondition(sqlite3_open(url.path, &db) == SQLITE_OK); defer { sqlite3_close(db) }
@@ -34,9 +61,30 @@ import CryptoKit
   return Data("cook".utf8)+be(1)+be(UInt32(page.count))+page
  }
  static func main() async throws {
+  if CommandLine.arguments.count == 5 && CommandLine.arguments[1] == "--fifo-store" {
+   let reader = NativeBrowserCookieReader(home: URL(fileURLWithPath: CommandLine.arguments[2]), keyProvider: { _ in fatalError("FIFO stores must not request a key") })
+   await expectCorruptStore(reader, browser: BrowserKind(rawValue: CommandLine.arguments[3])!, profile: CommandLine.arguments[4], scope: CookieScope.forURL("https://youtu.be/fixture")!)
+   return
+  }
   let root=FileManager.default.temporaryDirectory.appendingPathComponent("browser-fixture-\(UUID().uuidString)")
   try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer{try? FileManager.default.removeItem(at:root)}
   let scope=CookieScope.forURL("https://youtu.be/fixture")!
+  let databaseStores: [(BrowserKind, String, String)] = [
+   (.firefox, "test.default", "Library/Application Support/Firefox/Profiles/test.default/cookies.sqlite"),
+   (.chrome, "Default", "Library/Application Support/Google/Chrome/Default/Cookies"),
+   (.chrome, "Default", "Library/Application Support/Google/Chrome/Default/Network/Cookies"),
+   (.edge, "Profile 1", "Library/Application Support/Microsoft Edge/Profile 1/Network/Cookies")
+  ]
+  for (index, store) in databaseStores.enumerated() {
+   let fixtureHome = root.appendingPathComponent("nonregular-\(index)")
+   let file = fixtureHome.appendingPathComponent(store.2)
+   try FileManager.default.createDirectory(at: file, withIntermediateDirectories: true)
+   let fixtureReader = NativeBrowserCookieReader(home: fixtureHome, keyProvider: { _ in fatalError("Nonregular stores must not request a key") })
+   await expectCorruptStore(fixtureReader, browser: store.0, profile: store.1, scope: scope)
+   try FileManager.default.removeItem(at: file)
+   precondition(mkfifo(file.path, 0o600) == 0)
+   try await expectBoundedFIFORejection(home: fixtureHome, browser: store.0, profile: store.1)
+  }
   precondition(scope.contains(domain:".YouTube.Com") && scope.contains(domain:"www.youtube.com"))
   precondition(!scope.contains(domain:"evilyoutube.com") && !scope.contains(domain:"youtube.com.evil.test"))
   precondition(!scope.contains(domain:"..youtube.com") && !scope.contains(domain:"bad..youtube.com"))
@@ -107,6 +155,6 @@ import CryptoKit
   try FileManager.default.createDirectory(at:safari,withIntermediateDirectories:false)
   do {_ = try await reader.read(browser:.safari,profile:"Default",scope:scope);fatalError("Directory is not a Cookie store")}
   catch {precondition(error.localizedDescription.contains("损坏") || error.localizedDescription.contains("不受支持"), "Nonregular stores must fail as invalid input")}
-  print("Browser cookie scope, private profile, Firefox isolation, Chromium v10/digest and Safari bounds tests passed")
+  print("Browser cookie scope, private profile, Firefox isolation, Chromium v10/digest, Safari bounds and bounded nonregular store tests passed")
  }
 }
