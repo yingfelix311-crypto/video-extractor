@@ -63,6 +63,9 @@ enum ConnectionState: Equatable {
     private var polling: Task<Void, Never>?
     private var reconnecting = false
     private let archive: DownloadArchive
+    private var cookieCleanup:Task<Void,Never>?
+    private var cookieCleanupIDs=Set<String>()
+    private var cleaningCookieID:String?
     private var refreshing = false
     private var lastRecoveryAttempt = Date.distantPast
     private var browserProfileLoadID=UUID()
@@ -121,23 +124,33 @@ enum ConnectionState: Equatable {
             connection = .ready
             let folders=Set((items+completed+pending).compactMap(\.folder))
             submissions.removeAll { folders.contains($0.id) && $0.state != .cancelling }
-            // Only confirmed terminal IDs are cleaned here. A broad orphan sweep
-            // could race a new synchronization that starts while history is fetched.
-            for item in history.done {if let folder=item.folder {await cookieFiles.discard(taskID:folder)}}
             let active=Set((history.queue+history.pending).compactMap(\.folder))
-            for intent in submissions where intent.state == .failed && !active.contains(intent.id) {await cookieFiles.discard(taskID:intent.id)}
-            if canConfigure {
-                // Exclude new local submissions while sweeping confirmed idle files.
-                // In-flight/uncertain intents make canConfigure false.
-                isConfiguring=true
-                await cookieFiles.cleanup(keeping:active)
-                isConfiguring=false
-            }
+            let protected=active.union(submissions.filter{$0.state != .failed}.map(\.id))
+            let terminal=Set(history.done.compactMap(\.folder)).union(submissions.filter{$0.state == .failed}.map(\.id)).subtracting(protected)
+            scheduleCookieCleanup(terminal)
             await exportFinished()
         } catch {
             if connection != .starting { connection = .offline }
             // Retain the last successful snapshot during a transient outage.
             Backend.log("History: \(error.localizedDescription)")
+        }
+    }
+
+    /// Local privacy prompts and slow filesystems must not hold service readiness.
+    /// Only confirmed task UUIDs are removed here; orphan sweeping remains explicit
+    /// so a stale keep-set cannot race creation of a new submission's session jar.
+    private func scheduleCookieCleanup(_ ids:Set<String>) {
+        cookieCleanupIDs.formUnion(ids.filter{$0 != cleaningCookieID})
+        guard cookieCleanup == nil,!cookieCleanupIDs.isEmpty else {return}
+        cookieCleanup=Task { [weak self] in
+            guard let self else {return}
+            while let id=self.cookieCleanupIDs.first {
+                self.cookieCleanupIDs.remove(id)
+                self.cleaningCookieID=id
+                await self.cookieFiles.discard(taskID:id)
+                self.cleaningCookieID=nil
+            }
+            self.cookieCleanup=nil
         }
     }
 
