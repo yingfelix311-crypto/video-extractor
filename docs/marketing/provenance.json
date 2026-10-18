@@ -6,5 +6,35 @@
   "width": 1280,
   "height": 720,
   "fps": 24,
-  "purpose": "A public synthetic download/clip fixture; not evidence of platform-wide support or download speed"
+  "purpose": "A public synthetic download/clip fixture; not evidence of platform-wide support or download speed",
+  "demonstration": {
+    "productVersion": "1.4.1",
+    "productCodeBase": "399536b70effc94b483f14e14229eda8081c9f84",
+    "fixtureCommit": "e8d6272d8a5e17b9f3e13714516355c95cdc8e3c",
+    "source": "CUA captures of isolated native build",
+    "backend": "Real local MeTube download; no browser session imported",
+    "savedFileMatchesFixture": true,
+    "captureType": "Edited screenshots; not a continuous screen recording or speed test",
+    "isolation": "Bundle identifier, preferences, log/cache paths, backend endpoint and updater container target redirected; UI/download/clip algorithms unchanged",
+    "cacheTransport": "Synthetic download copied from isolated container to independent capture cache, then saved by App; capture App restarted once",
+    "shown": "Paste, saved task, original canvas, 21:9 canvas and selected 2–8 second range",
+    "notShown": "This capture does not claim a successful export or clean-Mac install",
+    "screenshots": {
+      "07-clip-range.png": "8fcccdd252bdba89ba4840fe0df510b9dee2855937601a6dff99aecf95316c75",
+      "05-clip-original.png": "102e0bb82bc818b3a5c5532876f48de9a12665cf31488b63eb001bee51d446bb",
+      "04-saved.png": "9b8f827f97a385f4c9abd6c59e72044628694e497230de239c4eea3e409d4cbf",
+      "02-pasted.png": "34cbced8e269f5f6ffc4bf87412bd241d3c8ead1fd8395edbf02ae12d1b2a0ad"
+    }
+  },
+  "render": {
+    "file": "video-extractor-demo.mp4",
+    "sha256": "2c6aa6002b084d73c59f88ac2ba5de139973a98a0a447dd572b6baa5a0e71436",
+    "durationSeconds": 30,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "audio": "none; deliberate silence",
+    "engine": "HyperFrames 0.8.171",
+    "validation": "strict check: 0 errors / 0 warnings; all scene midpoints visually inspected"
+  }
 }

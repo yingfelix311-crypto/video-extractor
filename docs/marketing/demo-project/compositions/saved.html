@@ -1,0 +1,17 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"></head><body><template>
+<style>
+#saved{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;color:#f0f0e9;background:#141514}
+#saved-title{position:absolute;left:56px;top:32px;font-size:36px;font-weight:700;line-height:1.4;opacity:0}
+#saved-sub{position:absolute;left:56px;top:88px;font-size:23px;line-height:1.5;color:#c9cbc2}
+#saved-frame{position:absolute;left:56px;top:144px;width:1168px;height:514px;overflow:hidden;border:1px solid #474a40;border-radius:18px;background:#141514}
+#saved-image{position:absolute;left:0;top:-80px;width:1168px;height:auto}
+</style>
+<div data-hf-id="hf-st08" id="saved" data-composition-id="saved" data-width="1280" data-height="720" data-duration="6">
+<div data-hf-id="hf-omqy" id="saved-title">02 · 保存后，打开或截取</div><div data-hf-id="hf-natz" id="saved-sub">任务保留保存位置，可直接打开本地文件</div>
+<div data-hf-id="hf-tile" id="saved-frame"><img data-hf-id="hf-lf2s" data-layout-allow-overflow id="saved-image" src="../assets/ui/04-saved.png" alt="Video Extractor 1.4.1 实机截图"></div>
+</div><script>
+var tl=gsap.timeline({paused:true});
+tl.set('#saved-title',{opacity:1,y:38},0.05);
+tl.to('#saved-title',{y:0,duration:0.18,ease:'power4.out'},0.05);
+window.__timelines['saved']=tl;
+</script></template></body></html>

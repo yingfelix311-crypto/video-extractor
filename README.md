@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/cover.svg" alt="Video Extractor：把喜欢的片段，带回来。" width="100%"></p>
+<p align="center"><img src="docs/images/social-preview.png" alt="Video Extractor：把喜欢的片段，带回来。" width="100%"></p>
 
 # Video Extractor 1.4.1
 
@@ -7,6 +7,14 @@
 **[下载 macOS 安装包（ZIP）](https://github.com/yingfelix311-crypto/video-extractor/releases/download/native-v1.4.1/Video-Extractor-Native-1.4.1-macOS-arm64.zip)** · [版本说明](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.1) · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
 
 仓库和安装包已公开，无需申请仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
+
+## 30 秒看操作
+
+[![观看 Video Extractor 30 秒界面流程演示](docs/images/demo-poster.jpg)](docs/marketing/video-extractor-demo.mp4)
+
+[观看 / 下载 MP4](docs/marketing/video-extractor-demo.mp4) · [文字字幕与演示范围](docs/marketing/TRANSCRIPT.md)
+
+实机截图剪辑，使用自制测试视频，配无声字幕；不是连续录屏或下载速度测试。展示粘贴、保存、原比例预览与 21:9 时间选择。
 
 ## English overview
 
@@ -99,6 +107,8 @@ python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 
 ## 反馈与参与
 
-遇到问题可提交 [Bug 反馈](https://github.com/yingfelix311-crypto/video-extractor/issues/new)，请说明 App / macOS 版本、平台、操作步骤和界面的简短错误原因。只提供可公开的样例链接；不要上传 Cookie、密码、浏览器数据库或带有个人信息的日志。功能建议也可在 Issues 中提出。
+遇到问题可提交 [Bug 反馈或功能建议](https://github.com/yingfelix311-crypto/video-extractor/issues/new/choose)，表单会引导填写版本、步骤和结果。只提供可公开的样例链接；不要上传 Cookie、密码、浏览器数据库或带有个人信息的日志。
+
+维护者可查看 [Mac 正式签名、公证与干净安装验收流程](docs/RELEASE-MAC.md)。项目分享素材与中英文介绍在 [推广素材包](docs/marketing/SHARE-COPY.md)。
 
 第三方依赖遵循各自许可证，见 [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)。仓库公开与源码开源许可是两回事；当前尚未为自有源码选择许可证。

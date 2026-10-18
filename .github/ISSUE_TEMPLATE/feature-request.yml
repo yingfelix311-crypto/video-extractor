@@ -1,0 +1,15 @@
+name: 功能建议 / Feature request
+description: 告诉我们想完成什么，以及现在卡在哪里
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想完成什么 / What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 期望的操作方式 / Suggested workflow
+    validations:
+      required: true

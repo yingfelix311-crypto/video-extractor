@@ -1,0 +1,24 @@
+# 公开展示与分发准备检查 · 2026-10-18
+
+本次只增加项目展示、反馈入口和维护者分发准备，不改变原生 App 的产品逻辑，不替换已发布的安装包。
+
+## 已检查
+
+- 分享封面：1280×640 PNG，134,464 字节；现有项目图标与品牌色，明确标注功能示意。
+- 30 秒演示：实际原生 UI 截图剪辑；独立 MeTube 后端下载自制测试 MP4，本地保存文件的 SHA256 与公开素材完全一致。演示未读取浏览器会话，不包含用户历史或媒体。
+- HyperFrames 0.8.171 `check --strict`：lint、runtime、layout、motion、contrast 均为 0 错误、0 警告。逐场景中点截图和编码后的联系表已目视检查。
+- 最终 MP4：H.264、1280×720、30 fps、30.000 秒、424,098 字节，无音轨；来源及校验值见 [`marketing/provenance.json`](marketing/provenance.json)。
+- 维护者分发测试：`python3 -m unittest discover -s distribution/tests -p 'test_*.py'`，26 项通过。新增测试覆盖当前 Bundle 限制、额外代码、符号链接、Developer ID 身份类型和输出目录别名隔离。
+- 独立代码审查指出输出路径的上级别名可能落入原 App，现已改为规范路径比较并增加回归测试；复核无阻塞项。
+- 签名脚本的本机只读预检：没有匹配的有效 Developer ID 身份时停止，没有产生公证输出，也没有修改已安装 App。
+- README 与新增说明中的本地资源链接检查通过；`git diff --check` 通过。
+- 原有本机后台在演示后仍返回 HTTP 200；本次使用独立命名的测试容器和演示偏好。
+
+## 明确未完成的外部条件
+
+- 本机 `security find-identity -v -p codesigning` 为 0 个有效签名身份。尚未向 Apple 提交公证；完整安装器、运行组件与干净 Mac 验收也尚未完成，不能把 App 辅助脚本当作完整发行认证。
+- 源码许可证仍待项目所有者决定；公开可读不等于已经授予 MIT 等开源许可。
+- 封面已用于 README；GitHub Social preview 的自动上传被 Chrome 扩展本地文件权限阻止，尚未完成该设置。
+- 中英文推广文案已提供，没有代发到尚未指定的社区。
+
+正式分发步骤与干净安装记录模板见 [`RELEASE-MAC.md`](RELEASE-MAC.md)；普通用户仍按 [`INSTALL-MAC.md`](INSTALL-MAC.md) 安装当前测试版。
