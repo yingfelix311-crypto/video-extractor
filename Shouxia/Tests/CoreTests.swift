@@ -8,6 +8,9 @@ import Foundation
         for text in ["hello", "file:///tmp/a", "https:///missing", "http://localhost/test", "http://127.0.0.1", "http://192.168.0.1", "http://[::1]/", "https://a.com https://b.com"] {
             check((try? LinkParser.extract(text)) == nil, "must reject \(text)")
         }
+        check(DownloadQuality.label(for:"2160") == "4K · 2160p", "4K label includes source resolution")
+        check(DownloadQuality.label(for:"1440") == "2K · 1440p", "2K label includes source resolution")
+        check(DownloadQuality.label(for:"best") == "最佳画质", "best label is clear")
         let resolved = try LinkParser.resolve("分享 https://www.douyin.com/jingxuan?modal_id=123456")
         check(resolved.originalURL == "https://www.douyin.com/jingxuan?modal_id=123456", "original retained")
         check(resolved.canonicalURL == "https://www.douyin.com/video/123456" && resolved.wasNormalized, "jingxuan normalized")

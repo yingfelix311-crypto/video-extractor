@@ -2,7 +2,14 @@ import Foundation
 
 enum DownloadQuality {
     static let values = ["best", "2160", "1440", "1080", "720", "480"]
-    static func label(for value: String) -> String { value == "best" ? "原始最佳" : value + "p" }
+    static func label(for value: String) -> String {
+        switch value {
+        case "best": return "最佳画质"
+        case "2160": return "4K · 2160p"
+        case "1440": return "2K · 1440p"
+        default: return value + "p"
+        }
+    }
     static func validate(_ value: String) throws {
         guard values.contains(value) else { throw AppError.message("请选择有效的清晰度。") }
     }

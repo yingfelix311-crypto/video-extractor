@@ -37,7 +37,7 @@ enum ConnectionState: Equatable {
         didSet {if let data=try? JSONEncoder().encode(browserCookies) {defaults.set(data,forKey:"browserCookiePreferencesV1")}}
     }
     @Published private(set) var browserProfiles:[BrowserProfile]=[]
-    @Published private(set) var browserCookieStatus="尚未读取浏览器网站会话；账号登录未验证。"
+    @Published private(set) var browserCookieStatus="尚未读取浏览器网站会话。"
     @Published private(set) var browserLoginURL=URL(string:"https://www.douyin.com/")!
     @Published private(set) var isLoadingBrowserProfiles=false
     @Published private(set) var runtimeRecoveryPending = false

@@ -71,7 +71,7 @@ struct EngineSettings:View {
                     Text("引擎与后台").font(TypeStyle.medium(15))
                     Toggle("自动更新下载引擎",isOn:$automaticDraft).tint(Ink.mint).disabled(busy)
                     Text("每天检查；有下载时延后，退出应用后停止。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
-                    Text("yt-dlp · \(updater.currentVersion)\n\(store.serviceVersion)").textSelection(.enabled)
+                    Text(store.serviceVersion).textSelection(.enabled)
                     Text(updater.status).font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                     HStack {
                         Button("立即检查并更新引擎") { Task { await store.checkUpdates() } }.disabled(busy)

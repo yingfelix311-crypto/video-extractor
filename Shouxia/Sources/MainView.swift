@@ -186,7 +186,7 @@ struct QualityControl:View {
     @State private var expanded=false
     private var label:String { DownloadQuality.label(for:quality) }
     var body:some View {
-        Button { expanded.toggle() } label: { HStack(spacing:13) { Text(label); Image(systemName:"chevron.down").font(.system(size:9)) }.font(TypeStyle.body(12)).padding(7) }
+        Button { expanded.toggle() } label: { HStack(spacing:13) { Text(label).fixedSize(); Image(systemName:"chevron.down").font(.system(size:9)) }.font(TypeStyle.body(12)).padding(7) }
             .buttonStyle(.plain).accessibilityLabel("画质：\(label)")
             .popover(isPresented:$expanded,arrowEdge:.bottom) {
                 VStack(spacing:4) {
