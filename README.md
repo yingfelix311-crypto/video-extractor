@@ -4,9 +4,15 @@
 
 原生 macOS 视频与音频工具：粘贴视频链接或整段分享文字，提取视频 / MP3，保存后可打开、定位或截取片段。支持菜单栏快捷输入、独立任务记录、按需读取浏览器网站会话与空闲时更新下载引擎。
 
-**[下载 Mac 安装包](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.1)** · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
+**[下载 macOS 安装包（ZIP）](https://github.com/yingfelix311-crypto/video-extractor/releases/download/native-v1.4.1/Video-Extractor-Native-1.4.1-macOS-arm64.zip)** · [版本说明](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.1) · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
 
-当前仓库为私有仓库，下载者需要有仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
+仓库和安装包已公开，无需申请仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
+
+## English overview
+
+Video Extractor is a native **macOS video and audio downloader** built with SwiftUI, AVFoundation and yt-dlp through a local MeTube service. Paste a video link or share text, save video or MP3, then trim a clip with a standard or custom aspect ratio. Quality options include 1440p / 2160p when the source provides them.
+
+The current prerelease supports **Apple Silicon and macOS 14+**. Download the ZIP above, extract the complete folder and run `安装原版.command`; the installer prepares the runtime and local backend. Internet is required on first installation. The app is ad-hoc signed and not Apple-notarized. See the [installation guide](docs/INSTALL-MAC.md) for setup and limitations.
 
 ## 安装后怎么用
 
@@ -90,3 +96,9 @@ python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 ```
 
 应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次仅针对新改动验证画面比例、自定义尺寸和对应短片导出，没有重复全部剪辑功能回归，详见 [1.4.1 验证记录](docs/VALIDATION-1.4.1.md)。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。
+
+## 反馈与参与
+
+遇到问题可提交 [Bug 反馈](https://github.com/yingfelix311-crypto/video-extractor/issues/new)，请说明 App / macOS 版本、平台、操作步骤和界面的简短错误原因。只提供可公开的样例链接；不要上传 Cookie、密码、浏览器数据库或带有个人信息的日志。功能建议也可在 Issues 中提出。
+
+第三方依赖遵循各自许可证，见 [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)。仓库公开与源码开源许可是两回事；当前尚未为自有源码选择许可证。
