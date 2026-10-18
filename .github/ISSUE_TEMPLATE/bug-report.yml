@@ -1,0 +1,37 @@
+name: 问题反馈 / Bug report
+description: 安装、下载、保存或剪辑遇到问题
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 请用简短步骤描述问题。不要上传 Cookie、密码、浏览器数据库或包含个人信息的日志；链接只填写可公开的样例。
+  - type: input
+    id: environment
+    attributes:
+      label: App 与 macOS 版本 / Versions
+      placeholder: Video Extractor 1.4.1，macOS 15，M 系列芯片
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 操作步骤与预期 / Steps and expected result
+      placeholder: 1. 粘贴链接；2. 选择视频；3. 点击提取。预期是……
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: 实际结果 / Actual result
+      description: 填写界面显示的简短原因。截图请先去除个人信息。
+    validations:
+      required: true
+  - type: input
+    id: sample
+    attributes:
+      label: 平台或可公开的样例链接 / Public sample (optional)
+  - type: dropdown
+    id: session
+    attributes:
+      label: 网站访问辅助 / Browser assistance
+      options: [未开启 / Off, 已开启 / On, 不确定 / Unsure, 与问题无关 / Not applicable]

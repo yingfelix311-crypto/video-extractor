@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 安装与首次使用 / Installation guide
+    url: https://github.com/yingfelix311-crypto/video-extractor/blob/main/docs/INSTALL-MAC.md
+    about: 下载、依赖、网站访问辅助、卸载说明
