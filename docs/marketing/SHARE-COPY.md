@@ -25,7 +25,7 @@ Project: [Video Extractor](https://github.com/yingfelix311-crypto/video-extracto
 ## 素材
 
 - 分享封面：[`../images/social-preview.png`](../images/social-preview.png)，1280×640。
-- 30 秒无声字幕流程演示：[`video-extractor-demo.mp4`](video-extractor-demo.mp4)。实机截图经剪辑，不是连续录屏或速度测试。
+- 40 秒无声字幕实机演示：[`video-extractor-walkthrough.mp4`](video-extractor-walkthrough.mp4)。包含真实下载、视频播放、比例选择、片段预览和成功导出；经过取景放大与剪辑。
 - [字幕文字与演示范围](TRANSCRIPT.md)。
 
 ## 后续观察

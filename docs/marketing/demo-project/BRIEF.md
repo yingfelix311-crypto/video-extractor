@@ -2,16 +2,13 @@
 workflow: general-video
 flow: automation
 storyboard: no
-message: "粘贴链接，提取并截取想保留的片段。"
-destination: "GitHub README / project sharing"
+message: "粘贴链接，预览画面，留下想要的片段。"
+destination: "GitHub README and project sharing"
 aspect: "16:9"
 language: "zh-CN"
-length: "30 seconds"
+length: "40 seconds"
 ---
 
-# Video Extractor 1.4.1 流程展示
-面向首次使用的 Apple Silicon Mac 用户。使用现有品牌色和真实原生 UI 截图，自制测试视频；无配音和音乐。
-展示粘贴、保存、本地剪辑画布与时间选择；持续注明实机截图经剪辑、隔离演示环境、等待时间不代表真实性能。
-不演示浏览器账号，不包含用户媒体，不宣称所有平台或所有画质均可用，不宣称本次已导出成功。
-
-交付 MP4、封面、字幕文字、可重现 HyperFrames 项目和来源清单。第三方素材许可证见 THIRD-PARTY.md。
+# 连续实机流程
+原生 1.4.1 App，真实下载、视频播放、21:9选择、2–8秒范围预览和成功导出。素材来自自制动态图，不使用账号和用户媒体。通过 CUA 连续采集了503帧原生窗口画面，保留真实时间戳，原始有效采集约13–18fps；编码30fps不代表原始采集30fps。不是静态截图幻灯片。
+只截取 App 窗口，剪去窗口标题栏；不录麦克风。右侧文字跟随实际操作变化；输出片段确实为2520×1080、6秒。

@@ -1,40 +1,135 @@
 {
-  "asset": "demo-source.mp4",
-  "origin": "Self-generated FFmpeg testsrc2 pattern and 440 Hz sine tone; no third-party footage or customer data",
-  "sha256": "362f36f8422482cf9a45041c75b0b1826a1468b9fc2a2d2a5332bfe2709d7ec9",
-  "duration": "10.000000",
-  "width": 1280,
-  "height": 720,
-  "fps": 24,
-  "purpose": "A public synthetic download/clip fixture; not evidence of platform-wide support or download speed",
-  "demonstration": {
-    "productVersion": "1.4.1",
-    "productCodeBase": "399536b70effc94b483f14e14229eda8081c9f84",
-    "fixtureCommit": "e8d6272d8a5e17b9f3e13714516355c95cdc8e3c",
-    "source": "CUA captures of isolated native build",
-    "backend": "Real local MeTube download; no browser session imported",
-    "savedFileMatchesFixture": true,
-    "captureType": "Edited screenshots; not a continuous screen recording or speed test",
-    "isolation": "Bundle identifier, preferences, log/cache paths, backend endpoint and updater container target redirected; UI/download/clip algorithms unchanged",
-    "cacheTransport": "Synthetic download copied from isolated container to independent capture cache, then saved by App; capture App restarted once",
-    "shown": "Paste, saved task, original canvas, 21:9 canvas and selected 2–8 second range",
-    "notShown": "This capture does not claim a successful export or clean-Mac install",
-    "screenshots": {
-      "07-clip-range.png": "8fcccdd252bdba89ba4840fe0df510b9dee2855937601a6dff99aecf95316c75",
-      "05-clip-original.png": "102e0bb82bc818b3a5c5532876f48de9a12665cf31488b63eb001bee51d446bb",
-      "04-saved.png": "9b8f827f97a385f4c9abd6c59e72044628694e497230de239c4eea3e409d4cbf",
-      "02-pasted.png": "34cbced8e269f5f6ffc4bf87412bd241d3c8ead1fd8395edbf02ae12d1b2a0ad"
+  "fixture": {
+    "file": "moment-demo.mp4",
+    "origin": "Self-generated FFmpeg gradient motion, existing project mascot and fonts; no third-party footage",
+    "sha256": "3669b9a8e28a24f8146f374d3d813595be3ee4fa74643704f35d0e953963f522",
+    "durationSeconds": 10,
+    "width": 1280,
+    "height": 720
+  },
+  "productVersion": "1.4.1",
+  "productCodeBase": "399536b70effc94b483f14e14229eda8081c9f84",
+  "fixtureCommit": "4af2a605c1b8a5905779528ae3573aa9ad7b8773",
+  "captureMethod": "CUA native app-window frame sampling with original elapsed timestamps; 80 top pixels of window chrome cropped; control API calls retain last frame; no microphone capture",
+  "capturedFrames": 503,
+  "recordings": [
+    {
+      "scene": "main",
+      "file": "main.mp4",
+      "capturedFrames": 158,
+      "captureDurationMs": 11543,
+      "averageSamplingFPS": 13.69,
+      "nativeWindowSize": [
+        2940,
+        1680
+      ],
+      "events": [
+        {
+          "label": "paste",
+          "ms": 1638
+        },
+        {
+          "label": "extract",
+          "ms": 5175
+        },
+        {
+          "label": "status",
+          "ms": 5985
+        },
+        {
+          "label": "status",
+          "ms": 6802
+        },
+        {
+          "label": "status",
+          "ms": 7605
+        },
+        {
+          "label": "status",
+          "ms": 8445
+        },
+        {
+          "label": "status",
+          "ms": 9326
+        },
+        {
+          "label": "saved",
+          "ms": 9326
+        }
+      ],
+      "sha256": "c6d2046cb1b0ffb47e1020013dd3da52ac02a10d11d7bf1847d91f06b4deebec"
+    },
+    {
+      "scene": "clip",
+      "file": "clip.mp4",
+      "capturedFrames": 262,
+      "captureDurationMs": 19744,
+      "averageSamplingFPS": 13.27,
+      "nativeWindowSize": [
+        1600,
+        1604
+      ],
+      "events": [
+        {
+          "label": "play-original",
+          "ms": 1544
+        },
+        {
+          "label": "open-ratio-menu",
+          "ms": 5915
+        },
+        {
+          "label": "select-21-9",
+          "ms": 7660
+        },
+        {
+          "label": "set-start-2-seconds",
+          "ms": 10114
+        },
+        {
+          "label": "set-end-8-seconds",
+          "ms": 11595
+        },
+        {
+          "label": "preview-six-second-selection",
+          "ms": 13079
+        }
+      ],
+      "sha256": "656bf20a114323e83dfdb1c44386d1af5422d73b365ee1f11c9fb6adcde3c8db"
+    },
+    {
+      "scene": "export",
+      "file": "export.mp4",
+      "capturedFrames": 83,
+      "captureDurationMs": 4543,
+      "averageSamplingFPS": 18.27,
+      "nativeWindowSize": [
+        1600,
+        1604
+      ],
+      "events": [],
+      "sha256": "26ffb22712de68e9babc9ce2ea46fed86028387b58fb117e9f8d6dbc70f014fe"
     }
+  ],
+  "environment": "Isolated bundle/preferences/log/cache and local MeTube container; real media mirrored into capture cache before forwarding real completion; product UI/download/clip algorithms unchanged",
+  "result": {
+    "file": "demo-project/assets/recordings/result.mp4",
+    "width": 2520,
+    "height": 1080,
+    "durationSeconds": 6,
+    "sourceFileUnchanged": true,
+    "sha256": "00e86b12f7912f6c71cdbbce7c509f560ab89def98112335fc0ed32e09e4b13f"
   },
   "render": {
-    "file": "video-extractor-demo.mp4",
-    "sha256": "2c6aa6002b084d73c59f88ac2ba5de139973a98a0a447dd572b6baa5a0e71436",
-    "durationSeconds": 30,
-    "width": 1280,
-    "height": 720,
+    "file": "video-extractor-walkthrough.mp4",
+    "sha256": "65ee22951d6148d9378d6a03f68f593248ba4f43b4391dc672f5395ac3a06715",
+    "size": 4255958,
+    "durationSeconds": 40,
+    "width": 1920,
+    "height": 1080,
     "fps": 30,
-    "audio": "none; deliberate silence",
+    "audio": "none",
     "engine": "HyperFrames 0.8.171",
-    "validation": "strict check: 0 errors / 0 warnings; all scene midpoints visually inspected"
+    "validation": "strict check 0 errors/0 warnings; scene frames inspected; real playback frame-change checks passed"
   }
 }
