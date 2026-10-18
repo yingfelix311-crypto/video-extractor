@@ -10,6 +10,7 @@
 <key>CFBundleVersion</key><string>7</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>NSDownloadsFolderUsageDescription</key><string>用于读取下载完成的视频并保存到你选择的文件夹，以及清理本机临时网站会话文件。</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 <key>NSHumanReadableCopyright</key><string>为 Felix 制作 · 本地影音工具</string>

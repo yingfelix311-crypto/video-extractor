@@ -1,0 +1,27 @@
+name: Verify native macOS product
+on:
+  pull_request:
+    paths: ['Shouxia/**', 'distribution/**', '.github/workflows/verify-native.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build native app
+        run: bash Shouxia/build.sh
+      - name: Non-clipping regression
+        run: |
+          for suite in test test-store test-completion test-settings test-submissions test-backend test-runtime test-browser-cookies test-browser-session test-update; do
+            bash "Shouxia/$suite.sh"
+          done
+      - name: Installer recovery and package tests
+        run: python3 -m unittest discover -s distribution/tests -p 'test_*.py'
+      - name: Verify signature
+        run: codesign --verify --deep --strict 'Shouxia/build/Video Extractor.app'

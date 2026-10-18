@@ -50,8 +50,8 @@ class RecoveryFlowTests(unittest.TestCase):
  def run_case(self,owned,create=False,setup_fail=False):
   with tempfile.TemporaryDirectory() as folder:
    root=Path(folder).resolve();base=root/'bundle';home=root/'user';base.mkdir();(base/'runtime/bin').mkdir(parents=True)
-   app=Path('/Users/felix/Applications/Video Extractor.app')
-   if not app.exists():self.skipTest('Original app fixture unavailable')
+   app=ROOT/'Shouxia/build/Video Extractor.app'
+   if not app.exists():self.fail('Run bash Shouxia/build.sh before native installer flow tests')
    shutil.copytree(app,base/'Video Extractor.app')
    for name in ['runtime.env','preflight.sh','backend_setup.py']:shutil.copy2(ROOT/'distribution/macos'/name,base/name)
    shutil.copytree(ROOT/'Shouxia/BackendPlugins',base/'BackendPlugins')

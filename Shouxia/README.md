@@ -33,14 +33,16 @@
 ```sh
 bash Shouxia/test.sh
 bash Shouxia/test-store.sh
+bash Shouxia/test-completion.sh
+bash Shouxia/test-settings.sh
 bash Shouxia/test-submissions.sh
 bash Shouxia/test-backend.sh
 bash Shouxia/test-runtime.sh
 bash Shouxia/test-browser-cookies.sh
 bash Shouxia/test-browser-session.sh
 bash Shouxia/test-update.sh
-python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 bash Shouxia/build.sh
+python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 # 先退出当前客户端，再安装开发构建
 bash Shouxia/install.sh
 ```
