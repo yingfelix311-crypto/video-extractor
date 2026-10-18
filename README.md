@@ -89,4 +89,4 @@ bash Shouxia/build.sh
 python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 ```
 
-应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次仅针对新改动验证画面比例、自定义尺寸和对应短片导出，没有重复全部剪辑功能回归。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。
+应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次仅针对新改动验证画面比例、自定义尺寸和对应短片导出，没有重复全部剪辑功能回归，详见 [1.4.1 验证记录](docs/VALIDATION-1.4.1.md)。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。

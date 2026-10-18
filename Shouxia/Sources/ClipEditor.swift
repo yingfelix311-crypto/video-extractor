@@ -309,7 +309,7 @@ struct ClipCanvasControl: View {
                 HStack(spacing: 12) {
                     Picker("自定义方式", selection: Binding(get: { model.customMode }, set: { model.setCustomMode($0) })) {
                         ForEach(ClipCustomMode.allCases) { mode in Text(mode.label).tag(mode) }
-                    }.pickerStyle(.segmented).frame(width: 160).accessibilityLabel("自定义方式")
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 160).accessibilityLabel("自定义方式")
                     TextField(model.customMode == .ratio ? "宽比例" : "宽度", text: $model.customWidth)
                         .frame(width: 80).accessibilityLabel(model.customMode == .ratio ? "自定义宽比例" : "自定义像素宽度")
                     Text(model.customMode == .ratio ? ":" : "×").foregroundStyle(Ink.muted)
