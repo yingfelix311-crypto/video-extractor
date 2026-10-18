@@ -1,16 +1,16 @@
 <p align="center"><img src="docs/images/cover.svg" alt="Video Extractor：把喜欢的片段，带回来。" width="100%"></p>
 
-# Video Extractor 1.4
+# Video Extractor 1.4.1
 
 原生 macOS 视频与音频工具：粘贴视频链接或整段分享文字，提取视频 / MP3，保存后可打开、定位或截取片段。支持菜单栏快捷输入、独立任务记录、按需读取浏览器网站会话与空闲时更新下载引擎。
 
-**[下载 Mac 安装包](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.0)** · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
+**[下载 Mac 安装包](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.1)** · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
 
 当前仓库为私有仓库，下载者需要有仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
 
 ## 安装后怎么用
 
-1. 从下载页获取 `Video-Extractor-Native-1.4.0-macOS-arm64.zip`，完整解压。
+1. 从下载页获取 `Video-Extractor-Native-1.4.1-macOS-arm64.zip`，完整解压。
 2. 双击文件夹中的 `安装原版.command`。首次联网自动准备运行组件与下载服务，通过检查后安装并打开 App。无需另装 Homebrew、Docker Desktop、Python、Node 或 FFmpeg。
 3. 粘贴链接，确认保存文件夹，点击 **提取**。默认最佳画质，浏览器会话辅助默认关闭。
 
@@ -28,10 +28,16 @@
 | 快捷输入 | 菜单栏入口和主窗口的“快捷输入”，带清空操作和查看任务入口 |
 | 网站访问辅助 | 可选指定浏览器 / 配置；仅读取该平台的 Cookie；默认关闭，手动导入位于高级设置 |
 | 设置与错误 | 统一保存入口；简短失败原因；后台健康概览与按需展开的详细信息 |
-| 本地截取 | 开始 / 结束时间线、0.25–2× 倍速、原尺寸与常见画布尺寸、可缩放预览和新文件导出 |
+| 本地截取 | 开始 / 结束时间线、0.25–2× 倍速、原视频比例、16:9 / 21:9 / 4:3 等常用比例、自定义比例或像素宽高、可缩放预览和新文件导出 |
 | 下载引擎 | 空闲时检查 / 更新 yt-dlp；本次安装包含抖音移动分享页解析补充插件 |
 
 4K / 2K 是否存在由视频源决定。部分网站需要分离的视频、音频轨合并，安装器准备 FFmpeg 完成这一步。选择兼容 MP4 会限制可选源格式，可能获得更低清晰度；它不是转码开关。
+
+## 剪辑画面比例
+
+在剪辑窗口的“画面比例”中选择原视频比例、16:9、21:9、4:3、3:2、1:1、9:16、3:4、2:3、4:5 或自定义。21:9 使用2520×1080；比例和实际像素分开显示。
+
+“自定义”支持按比例（如5:4、2.35:1）和按像素（如1280×1024）两种方式，输入后即时更新预览。比例模式按1080像素短边推算并取偶数像素；像素模式可精确输入64–8192之间的偶数宽高，总像素有上限。无效输入会提示原因并阻止导出。预览和导出使用同一画布，完整显示并补黑边；预览缩放仅改变屏幕上的显示大小。
 
 ## Cookie 和浏览器：什么时候设置
 
@@ -83,4 +89,4 @@ bash Shouxia/build.sh
 python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 ```
 
-应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次按用户要求未重新验证剪辑。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。
+应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次仅针对新改动验证画面比例、自定义尺寸和对应短片导出，没有重复全部剪辑功能回归，详见 [1.4.1 验证记录](docs/VALIDATION-1.4.1.md)。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。

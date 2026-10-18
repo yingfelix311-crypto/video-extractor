@@ -15,6 +15,39 @@ import UniformTypeIdentifiers
     }
     private var playbackObservation: NSKeyValueObservation?
     @Published var canvas: ClipCanvas = .source
+    @Published private(set) var customMode: ClipCustomMode = .ratio
+    @Published var customWidth = "16"
+    @Published var customHeight = "9"
+    var resolvedCustomSize: CGSize? { try? ClipCustomCanvas.parse(width: customWidth, height: customHeight, mode: customMode) }
+    var canvasValidationMessage: String? {
+        guard canvas == .custom else { return nil }
+        do { _ = try ClipCustomCanvas.parse(width: customWidth, height: customHeight, mode: customMode); return nil }
+        catch { return error.localizedDescription }
+    }
+    var resolvedCanvasSize: CGSize? {
+        guard let geometry, geometry.isValid else { return nil }
+        if canvas == .custom, resolvedCustomSize == nil { return nil }
+        return canvas.size(for: geometry, customSize: resolvedCustomSize)
+    }
+    func setCustomMode(_ mode: ClipCustomMode) {
+        guard mode != customMode else { return }
+        let size = resolvedCustomSize ?? CGSize(width: 1920, height: 1080)
+        customMode = mode
+        let width = Int(size.width), height = Int(size.height)
+        if mode == .pixels {
+            customWidth = String(width); customHeight = String(height)
+        } else {
+            var a = width, b = height
+            while b != 0 { let remainder = a % b; a = b; b = remainder }
+            if width / a <= 1000, height / a <= 1000 {
+                customWidth = String(width / a); customHeight = String(height / a)
+            } else if width >= height {
+                customWidth = String(format: "%.9g", Double(width) / Double(height)); customHeight = "1"
+            } else {
+                customWidth = "1"; customHeight = String(format: "%.9g", Double(height) / Double(width))
+            }
+        }
+    }
     @Published private(set) var geometry: ClipGeometry?
     @Published var duration = 0.0
     @Published var position = 0.0
@@ -118,6 +151,8 @@ import UniformTypeIdentifiers
     }
     func save() {
         guard let range, !exporting else { return }
+        if let message = canvasValidationMessage { error = message; return }
+        let exportCustomSize = canvas == .custom ? resolvedCustomSize : nil
         let exportSpeed = Double(playbackSpeed)
         let exportCanvas = canvas
         resetPreview()
@@ -139,7 +174,7 @@ import UniformTypeIdentifiers
             }
             defer { monitor.cancel(); exporting = false }
             do {
-                try await exporter.export(source: source, target: target, range: range, speed: exportSpeed, canvas: exportCanvas)
+                try await exporter.export(source: source, target: target, range: range, speed: exportSpeed, canvas: exportCanvas, customSize: exportCustomSize)
                 progress = 1; result = target
             } catch is CancellationError { notice = "已取消导出，原视频未改动。" }
             catch { self.error = "导出失败：\(error.localizedDescription)" }
@@ -256,12 +291,47 @@ struct ClipSpeedControl: View {
     }
 }
 
+struct ClipCanvasControl: View {
+    @ObservedObject var model: ClipEditorModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Picker("画面比例", selection: $model.canvas) {
+                    ForEach(ClipCanvas.allCases) { canvas in Text(canvas.label).tag(canvas) }
+                }.frame(maxWidth: 280).accessibilityLabel("画面比例")
+                Spacer()
+                if let size = model.resolvedCanvasSize {
+                    Text("预览 / 导出 \(Int(size.width.rounded())) × \(Int(size.height.rounded()))")
+                        .font(TypeStyle.body(11)).foregroundStyle(Ink.muted).fixedSize()
+                }
+            }
+            if model.canvas == .custom {
+                HStack(spacing: 12) {
+                    Picker("自定义方式", selection: Binding(get: { model.customMode }, set: { model.setCustomMode($0) })) {
+                        ForEach(ClipCustomMode.allCases) { mode in Text(mode.label).tag(mode) }
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 160).accessibilityLabel("自定义方式")
+                    TextField(model.customMode == .ratio ? "宽比例" : "宽度", text: $model.customWidth)
+                        .frame(width: 80).accessibilityLabel(model.customMode == .ratio ? "自定义宽比例" : "自定义像素宽度")
+                    Text(model.customMode == .ratio ? ":" : "×").foregroundStyle(Ink.muted)
+                    TextField(model.customMode == .ratio ? "高比例" : "高度", text: $model.customHeight)
+                        .frame(width: 80).accessibilityLabel(model.customMode == .ratio ? "自定义高比例" : "自定义像素高度")
+                    Text(model.customMode == .ratio ? "宽 : 高" : "像素").foregroundStyle(Ink.muted)
+                    Spacer(minLength: 0)
+                }.textFieldStyle(.roundedBorder).font(TypeStyle.body(12))
+                Text(model.canvasValidationMessage ?? (model.customMode == .ratio ? "比例支持小数，如 2.35 : 1；实际输出取偶数像素。" : "宽高填写 64–8192 之间的偶数。"))
+                    .font(TypeStyle.body(11)).foregroundStyle(model.canvasValidationMessage == nil ? Ink.muted : Ink.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }.disabled(model.loading || model.exporting)
+    }
+}
+
 struct ClipEditorView: View {
     @ObservedObject var model: ClipEditorModel
     @State private var previewHeight:CGFloat=320
     var body: some View {
         GeometryReader { viewport in
-        let canvasSize=model.geometry.map {model.canvas.size(for:$0)} ?? CGSize(width:16,height:9)
+        let canvasSize=model.resolvedCanvasSize ?? model.geometry?.displaySize ?? CGSize(width:16,height:9)
         let availableWidth=max(1,viewport.size.width-52)
         let maxPreviewHeight=max(180,min(720,min(viewport.size.height*0.7,availableWidth*canvasSize.height/canvasSize.width)))
         let displayHeight=min(maxPreviewHeight,max(180,previewHeight))
@@ -277,17 +347,7 @@ struct ClipEditorView: View {
                 Spacer()
                 Text("保留喜欢的这一段").font(TypeStyle.body(12)).foregroundStyle(Ink.muted)
             }
-            HStack {
-                Picker("画面尺寸", selection: $model.canvas) {
-                    ForEach(ClipCanvas.allCases) { canvas in Text(canvas.label).tag(canvas) }
-                }.frame(maxWidth: 360).disabled(model.loading || model.exporting)
-                Spacer()
-                if let geometry = model.geometry {
-                    let size = model.canvas.size(for: geometry)
-                    Text("\(Int(size.width.rounded())) × \(Int(size.height.rounded()))")
-                        .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
-                }
-            }
+            ClipCanvasControl(model: model)
             GeometryReader { proxy in
                 let fitted = ClipGeometry.fit(size: canvasSize, inside: proxy.size)
                 ZStack {
@@ -362,7 +422,7 @@ struct ClipEditorView: View {
                 Spacer()
                 Button("预览片段") { model.preview() }.buttonStyle(SoftButtonStyle())
                 Button("导出片段 ↗") { model.save() }.buttonStyle(SoftButtonStyle(primary: true))
-            }.disabled(model.range == nil || model.loading || model.exporting)
+            }.disabled(model.range == nil || model.loading || model.exporting || model.canvasValidationMessage != nil)
         }
         .padding(26).frame(maxWidth: .infinity)
         }

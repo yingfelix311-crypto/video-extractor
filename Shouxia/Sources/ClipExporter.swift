@@ -36,8 +36,13 @@ struct ClipRange {
     private var cancelled = false
     var progress: Double { Double(session?.progress ?? 0) }
     func cancel() { cancelled = true; session?.cancelExport() }
-    func export(source: URL, target: URL, range: ClipRange, speed: Double = 1, canvas: ClipCanvas = .source) async throws {
+    func export(source: URL, target: URL, range: ClipRange, speed: Double = 1, canvas: ClipCanvas = .source, customSize: CGSize? = nil) async throws {
         guard speed.isFinite, (0.25...2).contains(speed) else { throw AppError.message("导出倍速必须在 0.25 到 2 之间。") }
+        let validatedCustomSize: CGSize?
+        if canvas == .custom {
+            guard let customSize else { throw AppError.message("请填写有效的自定义画面尺寸。") }
+            validatedCustomSize = try ClipCustomCanvas.validate(size: customSize)
+        } else { validatedCustomSize = nil }
         guard !Self.busy else { throw AppError.message("已有片段正在导出，请等待完成。") }
         Self.busy = true; cancelled = false
         defer { session = nil; Self.busy = false }
@@ -67,7 +72,7 @@ struct ClipRange {
         if canvas != .source, let sourceTrack = sourceTracks.first, let outputTrack = outputTracks.first {
             let geometry = ClipGeometry(naturalSize: try await sourceTrack.load(.naturalSize), preferredTransform: try await sourceTrack.load(.preferredTransform))
             guard geometry.isValid else { throw AppError.message("无法读取视频尺寸。") }
-            let size = canvas.size(for: geometry)
+            let size = canvas.size(for: geometry, customSize: validatedCustomSize)
             // The layer transform owns orientation; the composition track must not apply it twice.
             outputTrack.preferredTransform = .identity
             let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: outputTrack)

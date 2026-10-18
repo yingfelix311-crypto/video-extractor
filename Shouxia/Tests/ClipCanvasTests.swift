@@ -7,13 +7,18 @@ import AVFoundation
   let geometry = ClipGeometry(naturalSize: size, preferredTransform: rotation)
   precondition(geometry.displaySize == CGSize(width: 1080, height: 1920))
   precondition(ClipCanvas.source.size(for: geometry) == geometry.displaySize)
+  guard let ultrawide = ClipCanvas.allCases.first(where: { $0.rawValue == "ultrawide" }) else {
+   preconditionFailure("21:9 canvas must be available")
+  }
+  let wideSize = ultrawide.size(for: geometry)
+  precondition(wideSize == CGSize(width: 2520, height: 1080), "21:9 must be exact, not 2560:1080")
   let canvas = ClipCanvas.landscape.size(for: geometry)
   let rect = CGRect(origin: .zero, size: size).applying(geometry.fitTransform(in: canvas))
   precondition(abs(rect.height - 1080) < 0.01)
   precondition(abs(rect.midX - 960) < 0.01 && abs(rect.midY - 540) < 0.01)
   for transform in [CGAffineTransform.identity, rotation, CGAffineTransform(a: -1, b: 0, c: 0, d: -1, tx: 0, ty: 0), CGAffineTransform(a: 0, b: -1, c: 1, d: 0, tx: -30, ty: 70)] {
    let source = ClipGeometry(naturalSize: size, preferredTransform: transform)
-   for preset in ClipCanvas.allCases {
+   for preset in ClipCanvas.allCases where preset != .custom {
     let output = preset.size(for: source)
     let result = CGRect(origin: .zero, size: size).applying(source.fitTransform(in: output)).standardized
     precondition(result.minX >= -0.01 && result.minY >= -0.01 && result.maxX <= output.width + 0.01 && result.maxY <= output.height + 0.01)
