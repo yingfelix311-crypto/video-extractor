@@ -1,10 +1,10 @@
 #!/bin/bash
 runtime_preflight(){
- local base="$1" home="$2" relative target
+ local base="$1" install_root="$2" relative target
  while IFS= read -r relative;do
   case "$relative" in bin/*|share/lima/*);;*) echo '运行组件清单路径无效。' >&2;return 1;;esac
   case "$relative" in *../*|/*) echo '运行组件清单路径无效。' >&2;return 1;;esac
-  target="$home/.local/$relative"
+  target="$install_root/.local/$relative"
   if [ -e "$target" ] || [ -L "$target" ];then
    if [ ! -f "$target" ] || ! cmp -s "$base/runtime/$relative" "$target";then
     printf '已有运行组件与安装包不同：%s。不会覆盖。\n' "$target" >&2;return 1

@@ -21,6 +21,8 @@ class BackendSetupTests(unittest.TestCase):
             data = b'# a plugin\n'
             digest = hashlib.sha256(data).hexdigest()
             self.assertTrue(module.install_plugin(data, digest, root, link))
+            self.assertTrue(module.install_plugin(data, digest, root, link), 'interrupted activation must request restart again')
+            module.finalize_plugin(root)
             self.assertFalse(module.install_plugin(data, digest, root, link))
             self.assertEqual((root/'yt_dlp_plugins/extractor/shouxia_douyin.py').read_bytes(), data)
             self.assertEqual(link.resolve(), root.resolve())
@@ -44,6 +46,19 @@ class BackendSetupTests(unittest.TestCase):
                 module.install_plugin(data, hashlib.sha256(data).hexdigest(), root, link)
             self.assertTrue(link.is_dir())
             self.assertFalse(root.exists())
+
+    def test_symlinked_plugin_parent_is_rejected_before_writing(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)/'persistent'
+            root.mkdir()
+            outside = Path(folder)/'outside'
+            outside.mkdir()
+            (root/'yt_dlp_plugins').symlink_to(outside, target_is_directory=True)
+            data = b'# a plugin\n'
+            with self.assertRaises(ValueError):
+                module.install_plugin(data, hashlib.sha256(data).hexdigest(), root, Path(folder)/'link')
+            self.assertEqual(list(outside.iterdir()), [])
 
     def test_replacement_retains_previous_plugin(self):
         module = self.module()

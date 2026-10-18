@@ -9,9 +9,25 @@ import tempfile
 import uuid
 
 
+def validate_plugin_paths(root):
+    # /downloads is the trusted bind mount. Reject user-created redirections
+    # below it before privileged writes, backup creation or marker cleanup.
+    paths = [root.parent, root, root/'yt_dlp_plugins',
+             root/'yt_dlp_plugins/extractor', root.parent/'plugin-backups',
+             root/'.activation-pending']
+    if any(path.is_symlink() for path in paths):
+        raise ValueError('解析插件目录包含符号链接，未修改')
+
+
+def finalize_plugin(root):
+    validate_plugin_paths(root)
+    (root/'.activation-pending').unlink(missing_ok=True)
+
+
 def install_plugin(data, expected_hash, root, link):
     if hashlib.sha256(data).hexdigest() != expected_hash:
         raise ValueError('解析插件校验失败')
+    validate_plugin_paths(root)
     if link.exists() or link.is_symlink():
         if not link.is_symlink() or link.resolve() != root.resolve():
             raise ValueError('已有解析插件目录不属于此安装器，未修改')
@@ -19,13 +35,16 @@ def install_plugin(data, expected_hash, root, link):
     if target.is_symlink():
         raise ValueError('解析插件文件不能是符号链接')
     changed = not target.exists() or target.read_bytes() != data or not link.exists()
+    pending = root/'.activation-pending'
     if not changed:
-        return False
+        return pending.exists()
     if target.exists():
         backup = root.parent/'plugin-backups'/uuid.uuid4().hex
         backup.mkdir(parents=True)
         shutil.copy2(target, backup/target.name)
     target.parent.mkdir(parents=True, exist_ok=True)
+    # Record the need for service activation before replacing plugin bytes.
+    pending.write_text(expected_hash + '\n')
     handle, temporary = tempfile.mkstemp(dir=target.parent, prefix='.install-')
     try:
         with os.fdopen(handle, 'wb') as stream:
@@ -68,11 +87,17 @@ def main():
                                  Path('/downloads/.shouxia/yt-dlp-plugins'),
                                  Path('/etc/yt-dlp/plugins/shouxia'))
         print('changed' if changed else 'unchanged')
-    elif mode == '--check':
+    elif mode in ('--check', '--activate'):
         from yt_dlp import YoutubeDL
         extractor = YoutubeDL({'quiet': True}).get_info_extractor('Douyin')
         if not extractor._real_extract.__module__.endswith('shouxia_douyin'):
             raise ValueError('抖音解析插件尚未加载')
+        root = Path('/downloads/.shouxia/yt-dlp-plugins')
+        validate_plugin_paths(root)
+        if mode == '--activate':
+            finalize_plugin(root)
+        elif (root/'.activation-pending').exists():
+            raise ValueError('解析插件等待后台重启，请重新运行安装器')
         print('下载依赖和抖音解析插件已就绪')
     else:
         raise ValueError('无效的配置模式')

@@ -122,7 +122,7 @@ if [ "$plugin_state" = changed ];then
  done
  [ "$ready" = true ] || fail '后台重新连接失败，客户端尚未更新；再次运行可恢复。'
 fi
-engine exec metube python3 -c "$(cat "$base/backend_setup.py")" --check || fail '下载依赖检查失败。'
+engine exec --user 0 metube python3 -c "$(cat "$base/backend_setup.py")" --activate || fail '下载依赖检查失败。'
 mkdir -p "${install_home}/Applications"
 if [ ! -d "$app" ] || ! diff -qr "$base/Video Extractor.app" "$app" >/dev/null;then
  if [ -d "$app" ];then

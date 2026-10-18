@@ -47,7 +47,7 @@ class PreflightTests(unittest.TestCase):
    p=Path(folder)/'colima.yaml';p.write_text('cpu: 2\nmemory: 2\ndisk: 20\narch: aarch64\nvmType: vz\nmountType: virtiofs\nruntime: docker\n')
    self.assertEqual(self.run_check('profile_preflight',p).returncode,0)
 class RecoveryFlowTests(unittest.TestCase):
- def run_case(self,owned):
+ def run_case(self,owned,create=False,setup_fail=False):
   with tempfile.TemporaryDirectory() as folder:
    root=Path(folder).resolve();base=root/'bundle';home=root/'user';base.mkdir();(base/'runtime/bin').mkdir(parents=True)
    app=Path('/Users/felix/Applications/Video Extractor.app')
@@ -56,26 +56,40 @@ class RecoveryFlowTests(unittest.TestCase):
    for name in ['runtime.env','preflight.sh','backend_setup.py']:shutil.copy2(ROOT/'distribution/macos'/name,base/name)
    shutil.copytree(ROOT/'Shouxia/BackendPlugins',base/'BackendPlugins')
    script=(ROOT/'distribution/macos/安装原版.command').read_text().replace('install_home="$HOME"','install_home='+repr(str(home)))
+   script=script.replace('/usr/sbin/lsof',str(home/'.local/bin/lsof'))
    (base/'安装原版.command').write_text(script)
    tools=home/'.local/bin';tools.mkdir(parents=True)
    state=home/'test-state';state.mkdir();(state/'owner').write_text('1.0.0' if owned else '<no value>')
+   if not create:(state/'created').write_text('yes')
+   if setup_fail:(state/'setup-fail').write_text('yes')
    docker_code=f"#!{sys.executable}\n"+"""import sys,pathlib
 home=pathlib.Path(__file__).resolve().parents[2];state=home/'test-state';a=sys.argv[3:];command=a[0]
 with (state/'calls').open('a') as f:f.write(' '.join(a)+'\\n')
 if command=='inspect':
+ if not (state/'created').exists():sys.exit(1)
  fmt=a[a.index('--format')+1] if '--format' in a else ''
  if 'HostIp' in fmt:print('127.0.0.1:8081')
  elif 'Mounts' in fmt:print(home/'Downloads/MeTube')
  elif '.Id' in fmt:print('c'*64)
  elif 'Labels' in fmt:print((state/'owner').read_text())
+elif command=='create':
+ (state/'created').write_text('yes');(state/'owner').write_text('1.0.0');print('c'*64)
 elif command=='exec':
- if 'pip' in a:
+ if '--install' in a:
+  if (state/'setup-fail').exists():sys.exit(9)
+  print('changed')
+ elif '--activate' in a:print('ready')
+ elif 'pip' in a:
   marker=state/'pip-attempted'
-  if not marker.exists():marker.write_text('yes');sys.exit(7)
+  if not marker.exists():
+   marker.write_text('yes')
+   if (state/'owner').read_text()=='1.0.0' and not (state/'fresh-install').exists():sys.exit(7)
  else:print('2026.10.10.233141')
 """
    for name,code in [('docker',docker_code),('colima','#!/bin/bash\nexit 0\n'),('limactl','#!/bin/bash\nexit 0\n')]:
     (base/'runtime/bin'/name).write_text(code);(base/'runtime/bin'/name).chmod(0o755);shutil.copy2(base/'runtime/bin'/name,tools/name)
+   if create:(state/'fresh-install').write_text('yes')
+   (tools/'lsof').write_text('#!/bin/bash\nexit 1\n');(tools/'lsof').chmod(0o755)
    for name in ['curl','open']:(tools/name).write_text('#!/bin/bash\nexit 0\n');(tools/name).chmod(0o755)
    (base/'runtime-files.txt').write_text('bin/docker\nbin/colima\nbin/limactl\n')
    profile=home/'.colima/metube/colima.yaml';profile.parent.mkdir(parents=True);profile.write_text('cpu: 2\nmemory: 2\ndisk: 20\narch: aarch64\nvmType: vz\nmountType: virtiofs\nruntime: docker\n')
@@ -86,7 +100,12 @@ elif command=='exec':
     if file.is_file():sums.append(hashlib.sha256(file.read_bytes()).hexdigest()+'  '+file.relative_to(base).as_posix())
    (base/'SHA256SUMS.txt').write_text('\n'.join(sums)+'\n')
    first=subprocess.run(['bash',str(base/'安装原版.command')],capture_output=True,text=True,errors="replace")
-   if owned:
+   if setup_fail:
+    self.assertNotEqual(first.returncode,0);self.assertFalse((home/'Applications/Video Extractor.app').exists());self.assertIn('解析插件准备失败',first.stderr)
+   elif create:
+    self.assertEqual(first.returncode,0,first.stdout+first.stderr)
+    calls=(state/'calls').read_text();self.assertIn('create --name metube',calls);self.assertIn('ALLOW_YTDL_OPTIONS_OVERRIDES=true',calls);self.assertIn('--install',calls);self.assertIn('--activate',calls);self.assertTrue((home/'Applications/Video Extractor.app').exists())
+   elif owned:
     self.assertNotEqual(first.returncode,0);self.assertTrue((journal/'backend-init.pending').exists());self.assertFalse((home/'Applications/Video Extractor.app').exists())
     second=subprocess.run(['bash',str(base/'安装原版.command')],capture_output=True,text=True,errors="replace")
     self.assertEqual(second.returncode,0,second.stdout+second.stderr);self.assertFalse((journal/'backend-init.pending').exists());self.assertEqual((journal/'backend-init.complete').read_text(),'c'*64+'\n')
@@ -95,5 +114,7 @@ elif command=='exec':
     self.assertEqual(first.returncode,0,first.stdout+first.stderr);self.assertNotIn('-m pip install',(state/'calls').read_text());self.assertFalse((state/'pip-attempted').exists())
  def test_interrupted_owned_container_resumes_pinned_initialization(self):self.run_case(True)
  def test_existing_user_container_never_has_engine_reinstalled(self):self.run_case(False)
+ def test_new_container_installs_overrides_and_plugin_before_client(self):self.run_case(False,create=True)
+ def test_plugin_failure_does_not_update_client(self):self.run_case(False,setup_fail=True)
 
 if __name__=='__main__':unittest.main()
