@@ -40,7 +40,7 @@ python3 distribution/macos/notarize_app.py \
   --app 'Shouxia/build/Video Extractor.app' \
   --identity YOUR_40_CHARACTER_CERTIFICATE_SHA1 \
   --profile video-extractor-notary \
-  --output build/app-notarized-candidate --check
+  --output distribution/output/app-notarized-candidate --check
 ```
 
 条件齐备后，去掉 `--check` 执行。该脚本只接受当前原生 Bundle；发现额外可执行文件、嵌套 Mach-O 或符号链接会停止，要求逐项审查。它复制 App，使用 hardened runtime 和安全时间戳签名，提交 Apple，要求 `Accepted`，然后装订票据并执行 `codesign`、`stapler validate`、`spctl`。成功后才产生 `Video-Extractor-app-notarized.zip`。已有输出目录一律拒绝覆盖；源 App、已安装 App 和现有 GitHub 测试版不变。

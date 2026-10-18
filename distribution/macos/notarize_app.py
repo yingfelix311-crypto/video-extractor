@@ -60,6 +60,10 @@ def validate_output(app, output):
     return canonical_output
 
 
+def verify_architecture(executable):
+    run('lipo', str(executable), '-verify_arch', 'arm64', capture=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app', type=Path, required=True)
@@ -78,7 +82,7 @@ def main():
     if not args.profile.strip():
         raise ValueError('A keychain profile is required. Store credentials with notarytool first.')
     output = validate_output(app, args.output)
-    run('lipo', '-verify_arch', 'arm64', str(app/'Contents/MacOS/Shouxia'), capture=True)
+    verify_architecture(app/'Contents/MacOS/Shouxia')
     if args.check:
         print('Local prerequisites pass. Keychain-profile authentication and Apple acceptance are not yet verified.')
         return

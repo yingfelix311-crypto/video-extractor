@@ -8,7 +8,7 @@
 - 30 秒演示：实际原生 UI 截图剪辑；独立 MeTube 后端下载自制测试 MP4，本地保存文件的 SHA256 与公开素材完全一致。演示未读取浏览器会话，不包含用户历史或媒体。
 - HyperFrames 0.8.171 `check --strict`：lint、runtime、layout、motion、contrast 均为 0 错误、0 警告。逐场景中点截图和编码后的联系表已目视检查。
 - 最终 MP4：H.264、1280×720、30 fps、30.000 秒、424,098 字节，无音轨；来源及校验值见 [`marketing/provenance.json`](marketing/provenance.json)。
-- 维护者分发测试：`python3 -m unittest discover -s distribution/tests -p 'test_*.py'`，26 项通过。新增测试覆盖当前 Bundle 限制、额外代码、符号链接、Developer ID 身份类型和输出目录别名隔离。
+- 维护者分发测试：`python3 -m unittest discover -s distribution/tests -p 'test_*.py'`，27 项通过。新增测试覆盖当前 Bundle 限制、额外代码、符号链接、Developer ID 身份类型、输出目录别名隔离和真实 arm64 可执行文件的 `lipo` 架构检查。
 - 独立代码审查指出输出路径的上级别名可能落入原 App，现已改为规范路径比较并增加回归测试；复核无阻塞项。
 - 签名脚本的本机只读预检：没有匹配的有效 Developer ID 身份时停止，没有产生公证输出，也没有修改已安装 App。
 - README 与新增说明中的本地资源链接检查通过；`git diff --check` 通过。

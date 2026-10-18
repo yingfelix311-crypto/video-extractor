@@ -3,6 +3,8 @@ from pathlib import Path
 import plistlib
 import tempfile
 import unittest
+import subprocess
+import sys
 
 spec = importlib.util.spec_from_file_location('notarize_app', Path(__file__).resolve().parents[1]/'macos/notarize_app.py')
 notary = importlib.util.module_from_spec(spec)
@@ -71,6 +73,14 @@ class AppSigningTests(unittest.TestCase):
             (root/'candidate').mkdir()
             with self.assertRaisesRegex(ValueError, 'exists'):
                 notary.validate_output(app, alias/'candidate')
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'Requires the real macOS toolchain')
+    def test_real_lipo_accepts_an_arm64_executable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp)/'arm64-fixture'
+            subprocess.run(['xcrun', 'clang', '-arch', 'arm64', '-x', 'c', '-', '-o', str(binary)],
+                           input='int main(void) { return 0; }', text=True, check=True, capture_output=True)
+            notary.verify_architecture(binary)
 
 
 if __name__ == '__main__':
