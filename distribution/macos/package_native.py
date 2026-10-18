@@ -33,7 +33,7 @@ def main():
  shutil.copytree(args.runtime_root/'share/lima',runtime/'share/lima')
  shutil.copytree(ROOT/'distribution/macos/licenses',bundle/'licenses')
  files=inventory(runtime);(bundle/'runtime-files.txt').write_text('\n'.join(files)+'\n')
- manifest={'product':'original SwiftUI/AVFoundation app','version':info['CFBundleShortVersionString'],'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),'originalAppFiles':inventory(app),'extractorPlugins':inventory(bundle/'BackendPlugins'),'runtimeFiles':files,'backend':'fixed digest in runtime.env; no container state, VM disk, user history, cookies, subscriptions or downloaded videos included','status':'private prerelease, ad-hoc signed, not notarized; clean-Mac end-to-end verification required'}
+ manifest={'product':'original SwiftUI/AVFoundation app','version':info['CFBundleShortVersionString'],'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),'originalAppFiles':inventory(app),'extractorPlugins':inventory(bundle/'BackendPlugins'),'runtimeFiles':files,'backend':'fixed digest in runtime.env; no container state, VM disk, user history, cookies, subscriptions or downloaded videos included','status':'prerelease, ad-hoc signed, not notarized; clean-Mac end-to-end verification required'}
  (bundle/'ORIGINAL-MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
  sums=inventory(bundle);(bundle/'SHA256SUMS.txt').write_text('\n'.join(f'{value}  {file}' for file,value in sums.items())+'\n')
  archive=output/(name+'.zip')
