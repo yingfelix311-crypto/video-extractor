@@ -21,6 +21,8 @@ jobs:
           for suite in test test-store test-completion test-settings test-submissions test-backend test-runtime test-browser-cookies test-browser-session test-update; do
             bash "Shouxia/$suite.sh"
           done
+      - name: Focused clip aspect and custom size checks
+        run: bash Shouxia/test-clip-aspects.sh
       - name: Installer recovery and package tests
         run: python3 -m unittest discover -s distribution/tests -p 'test_*.py'
       - name: Verify signature

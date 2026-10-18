@@ -98,7 +98,7 @@ struct ClipTestPixels {
    originalGenerator.appliesPreferredTrackTransform = true
    let originalImage = try await originalGenerator.image(at: CMTime(seconds: 0.3 * 1.35, preferredTimescale: 60000)).image
    verifyContent(source: reference, output: originalImage, fixture: CommandLine.arguments.contains("--fixture"))
-   for canvas in ClipCanvas.allCases where canvas != .source {
+   for canvas in ClipCanvas.allCases where canvas != .source && canvas != .custom {
     let changed = directory.appendingPathComponent("canvas-\(canvas.rawValue).mp4")
     try await service.export(source: source, target: changed, range: range, speed: 1.35, canvas: canvas)
     let output = AVURLAsset(url: changed)
@@ -114,7 +114,7 @@ struct ClipTestPixels {
     verifyContent(source: reference, output: image, fixture: CommandLine.arguments.contains("--fixture"))
     try FileManager.default.removeItem(at: changed)
    }
-   print("PASS: source orientation/dimensions preserved; all six preset canvases preserve oriented content and black pads, match with 1.35x and audio")
+   print("PASS: source orientation/dimensions preserved; all preset canvases preserve oriented content and black pads, match with 1.35x and audio")
    let exported = try Data(contentsOf: target)
    do { try await service.export(source: source, target: target, range: range); preconditionFailure("must not overwrite") } catch {}
    precondition(try! Data(contentsOf: target) == exported)

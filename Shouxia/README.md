@@ -1,6 +1,6 @@
 # Video Extractor 原生客户端
 
-当前版本 1.4.0，macOS 14+ / Apple Silicon。产品介绍、功能表和平台样例见 [项目首页](../README.md)；普通用户按 [Mac 安装说明](../docs/INSTALL-MAC.md) 使用发行包即可，无需构建源码。
+当前版本 1.4.1，macOS 14+ / Apple Silicon。产品介绍、功能表和平台样例见 [项目首页](../README.md)；普通用户按 [Mac 安装说明](../docs/INSTALL-MAC.md) 使用发行包即可，无需构建源码。
 
 ## 日常操作
 
@@ -11,7 +11,7 @@
 - 同一链接分别提取视频、音频或不同参数时，完成记录各自保留。移除记录不会删除媒体。
 - 设置采用草稿，点击保存并关闭后生效；取消放弃编辑。导入文件、删除文件、检查更新等维护动作会明确即时执行。
 - 网站访问辅助默认关闭。用途、选浏览器原因及权限方法见安装说明。成功读出 Cookie 不代表登录；支持域名范围不代表所有平台都具备解析器。
-- 本地剪辑继续使用原生 AVFoundation：默认原尺寸、常见横竖屏 / 方形画布、可缩放预览、0.25–2× 倍速与新 MP4 导出。不会覆盖原文件。本次未重新验证剪辑。
+- 本地剪辑继续使用原生 AVFoundation：默认原尺寸、16:9、21:9、4:3等常用比例，自定义比例 / 像素宽高、可缩放预览、0.25–2× 倍速与新 MP4 导出。不会覆盖原文件。本次只验证画面比例、自定义尺寸及对应短片导出。
 
 ## 开发依赖
 
@@ -57,7 +57,7 @@ bash Shouxia/install.sh
 python3 distribution/macos/package_native.py \
   --app 'Shouxia/build/Video Extractor.app' \
   --runtime-root "$HOME/.local" \
-  --output distribution/output/native-1.4.0
+  --output distribution/output/native-1.4.1
 ```
 
 输出版本由 App Info.plist 决定，包括 ZIP、SHA256SUMS、安装说明和 ORIGINAL-MANIFEST。ZIP 包含原生 App、运行组件、抖音插件、安装器与授权说明。需要在解压目录再运行 `安装原版.command --verify-only`，核对版本 / sourceCommit 与已推送提交，再发布 GitHub Release。
@@ -77,7 +77,16 @@ MeTube 和 yt-dlp 上游分别见 [MeTube](https://github.com/alexta69/metube)�
 | 抖音分享页补充 | `BackendPlugins/yt_dlp_plugins/extractor/shouxia_douyin.py` |
 | 剪辑 / 画布 / 导出 | `Sources/ClipEditor.swift`、`Sources/ClipCanvas.swift`、`Sources/ClipExporter.swift` |
 
-## 可选剪辑回归（本轮未执行）
+## 画面比例的定向测试
+
+```sh
+bash Shouxia/test-clip-aspects.sh          # 比例 / 边界 / 编辑器状态
+bash Shouxia/test-clip-aspects.sh --export # 额外生成短测试视频，验证实际导出
+```
+
+实际导出夹具需要维护者的本机FFmpeg（默认`~/.local/bin/ffmpeg`，也可通过`SHOUXIA_FFMPEG`指定），这不是普通用户的安装依赖。覆盖原尺寸、21:9、自定义5:4和1280×1024，检查横屏与旋转视频的尺寸、音轨、居中内容和黑边。
+
+## 其他可选剪辑回归（本轮未重复执行）
 
 ```sh
 bash Shouxia/test-clips.sh

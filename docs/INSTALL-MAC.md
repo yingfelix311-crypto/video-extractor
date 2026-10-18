@@ -1,10 +1,10 @@
 # Mac 安装与运行
 
-本次发行是 Video Extractor **1.4.0 原生 SwiftUI / AVFoundation 版**。支持 Apple Silicon（M 系列）、macOS 14 及以上；Windows、Intel Mac 不在本安装包范围内。
+本次发行是 Video Extractor **1.4.1 原生 SwiftUI / AVFoundation 版**。支持 Apple Silicon（M 系列）、macOS 14 及以上；Windows、Intel Mac 不在本安装包范围内。
 
 ## 安装
 
-1. 使用有仓库权限的 GitHub 账号打开 [1.4.0 下载页](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.0)，下载 `Video-Extractor-Native-1.4.0-macOS-arm64.zip`。GitHub 自动生成的 Source code ZIP 是源码，不是安装包。
+1. 使用有仓库权限的 GitHub 账号打开 [1.4.1 下载页](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.1)，下载 `Video-Extractor-Native-1.4.1-macOS-arm64.zip`。GitHub 自动生成的 Source code ZIP 是源码，不是安装包。
 2. 解压完整文件夹，退出旧版 App，双击 `安装原版.command`。不要把 App 单独拖走，安装器还需要同目录的 runtime、插件和校验文件。
 3. 安装器校验文件，准备运行组件，联网初始化下载后台，检查下载引擎及插件后安装并打开应用。安装到 `~/Applications/Video Extractor.app`。如果失败，保留安装文件夹，按简短原因处理后再次运行；它会核对并恢复自身的初始化。
 4. 打开后粘贴单视频链接或分享文字，选择保存文件夹，点击 **提取**。音频请选择 **音频**，输出 MP3。先使用“最佳画质”和默认关闭的“网站访问辅助”。
@@ -75,4 +75,4 @@ bash 安装原版.command --check       # 检查已安装运行组件、后台�
 
 ## 安装验证边界
 
-发行验证包括原生构建与签名完整性、非剪辑回归、安装包逐文件 SHA256、已有后台检查、实际下载和质量选择，以及隔离夹具中的初始化中断恢复 / 冲突保护。固定的干净 MeTube 镜像单独检查了 FFmpeg、JavaScript 运行时和抖音请求模拟能力。尚未在另一台干净物理 Mac 完成从下载到首次启动的完整验收；没有把已配置好的作者机器结果冒充该验收。本轮按用户要求未运行剪辑验证。
+发行验证包括原生构建与签名完整性、非剪辑回归、安装包逐文件 SHA256、已有后台检查、实际下载和质量选择，以及隔离夹具中的初始化中断恢复 / 冲突保护。固定的干净 MeTube 镜像单独检查了 FFmpeg、JavaScript 运行时和抖音请求模拟能力。尚未在另一台干净物理 Mac 完成从下载到首次启动的完整验收；没有把已配置好的作者机器结果冒充该验收。本轮针对画面比例和自定义尺寸做了定向预览／导出验证，没有重复其他剪辑回归。

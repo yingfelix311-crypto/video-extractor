@@ -10,7 +10,7 @@
 
 - Preserve source-size default and orientation-aware full-image fit with black padding.
 - Presets16:9,21:9,4:3,3:2,1:1,9:16,3:4,2:3,4:5; ratio labels separate from pixel dimensions.
-- Custom ratio and pixels both supported; even pixel edges64..8192, area<=33,554,432; ratio decimal inputs positive<=1000, aspect1:20..20:1.
+- Custom ratio and pixels both supported; even pixel edges64..8192, area<=33,554,432; ratio decimal inputs positive<=1000, aspect1:128..128:1.
 - Invalid custom drafts block export; preview/export use one validated canvas snapshot.
 - No changes to downloading/Cookie setup and no full unrelated clip regression. Preserve user files/preferences.
 - Reuse current checkout on codex/clip-aspect-ratios, existing repository authorization applies to source/patch release; do not alter existing published1.4.0 assets.

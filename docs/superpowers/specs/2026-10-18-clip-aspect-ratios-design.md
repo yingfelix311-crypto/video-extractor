@@ -8,7 +8,7 @@ The picker is labeled 画面比例 and displays 原视频比例,16:9,21:9,4:3,3:
 
 Custom reveals an inline segmented ratio/pixels mode plus two number fields. Valid input updates preview immediately, no hidden Apply step. Changing modes converts the current valid size; last custom fields survive switching to a preset and back. Invalid input shows one concise reason, retains a bounded source-shaped placeholder and disables preview/export actions that would otherwise use different dimensions. Source/presets ignore unused invalid custom drafts.
 
-Ratio accepts positive finite decimal numbers up to1000 per side and aspect range1:20..20:1. Derive a1080-pixel short edge, constrain the long edge to8192 and total pixels to33,554,432, then round down to even dimensions. Pixel input accepts integers64..8192 with even dimensions and at most33,554,432 pixels. No implicit pixel rounding: explain invalid values. These bounds apply to custom canvas, not the original-source default.
+Ratio accepts positive finite decimal numbers up to1000 per side and aspect range1:128..128:1. Derive a1080-pixel short edge, constrain the long edge to8192 and total pixels to33,554,432, then round down to even dimensions. Pixel input accepts integers64..8192 with even dimensions and at most33,554,432 pixels. No implicit pixel rounding: explain invalid values. These bounds apply to custom canvas, not the original-source default.
 
 Export captures one validated custom size at save time and checks it again in the exporter. Preview uses the same resolved size. Keep orientation-aware centered fit and black padding, never stretch or silently crop. Preview display zoom remains independent of output pixels.
 
