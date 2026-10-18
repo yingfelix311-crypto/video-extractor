@@ -2,6 +2,10 @@
 
 为 Felix 制作的原生 macOS 影音下载工具。SwiftUI 主窗口与菜单栏共享任务，连接这台电脑已有的 MeTube 服务。
 
+## 原版下载
+
+有仓库读取权限的用户可从 [Releases](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.0.0) 下载 Mac 原版 App 与首次后台配置脚本。详细步骤、依赖和验收限制见 [安装说明](../docs/INSTALL-MAC.md)。本次只添加分发层，Sources 与原版交互/参数保持不变。
+
 ## 使用
 
 打开 `~/Applications/Video Extractor.app`，也可以双击桌面的「Video Extractor」。首次连接会自动启动现有下载服务。
@@ -42,7 +46,7 @@
 - 此安装依赖当前 Mac 的 `~/.local/bin/colima`、`docker`，Colima profile `metube`、容器 `metube`。
 - 服务固定为 `http://127.0.0.1:8081`，不会对公网开放。
 - 容器必须保持原有 `~/Downloads/MeTube:/downloads` 挂载及 `DELETE_FILE_ON_TRASHCAN=false`（默认值），以使「移除记录」保留文件。
-- 不是可复制到任意电脑即用的通用分发包；没有付费服务依赖。
+- 原版 App 单独复制仍需要配置后台；Releases 的安装脚本补充首次环境准备，尚需干净 Mac 验收，没有付费服务依赖。
 - 日志：`~/Library/Application Support/Shouxia/backend.log`，可从帮助菜单打开。
 
 ## 开发
