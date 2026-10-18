@@ -8,14 +8,6 @@
 
 仓库和安装包已公开，无需申请仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
 
-## 30 秒看操作
-
-[![观看 Video Extractor 30 秒界面流程演示](docs/images/demo-poster.jpg)](docs/marketing/video-extractor-demo.mp4)
-
-[观看 / 下载 MP4](docs/marketing/video-extractor-demo.mp4) · [文字字幕与演示范围](docs/marketing/TRANSCRIPT.md)
-
-实机截图剪辑，使用自制测试视频，配无声字幕；不是连续录屏或下载速度测试。展示粘贴、保存、原比例预览与 21:9 时间选择。
-
 ## English overview
 
 Video Extractor is a native **macOS video and audio downloader** built with SwiftUI, AVFoundation and yt-dlp through a local MeTube service. Paste a video link or share text, save video or MP3, then trim a clip with a standard or custom aspect ratio. Quality options include 1440p / 2160p when the source provides them.
