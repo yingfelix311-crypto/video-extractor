@@ -1,0 +1,10 @@
+{
+  "asset": "demo-source.mp4",
+  "origin": "Self-generated FFmpeg testsrc2 pattern and 440 Hz sine tone; no third-party footage or customer data",
+  "sha256": "362f36f8422482cf9a45041c75b0b1826a1468b9fc2a2d2a5332bfe2709d7ec9",
+  "duration": "10.000000",
+  "width": 1280,
+  "height": 720,
+  "fps": 24,
+  "purpose": "A public synthetic download/clip fixture; not evidence of platform-wide support or download speed"
+}

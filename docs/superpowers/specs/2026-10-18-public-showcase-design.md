@@ -1,0 +1,7 @@
+# Public showcase delivery
+
+The user approved carrying out the previous recommendations: a 1280×640 share image, an approximately 30-second real workflow demonstration, profile pinning and distribution readiness. Preserve the existing purple / chartreuse native product identity. Deliver a Chinese 16:9 demonstration with readable text and a GitHub download CTA. Use deliberate silence and a text transcript; no paid or authenticated media provider is required.
+
+Use only generated sample media and an isolated demonstration application / backend. The native UI and actual extraction / clipping code must come from the current product. Runtime endpoint, local cache and preference domain may be isolated for capture and must be disclosed. Do not capture or publish the author's browser session, production history, usernames in filesystem paths, or third-party downloaded video. Demonstration timing is edited and does not substantiate a download-speed claim.
+
+Publish reviewed assets and provenance to the repository and set the GitHub social preview / profile pin. Do not change unrelated account settings or publish community posts on behalf of the user. Source license remains gated on the user's explicit MIT choice. Developer ID signing / notarization requires a valid identity and Apple credentials; absent credentials, deliver local preparation and explicit clean-Mac acceptance instructions without claiming notarization or clean-hardware validation.
