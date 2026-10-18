@@ -20,7 +20,7 @@ enum ConnectionState: Equatable {
     @Published var completed: [DownloadItem] = []
     @Published var pending: [DownloadItem] = []
     @Published var connection: ConnectionState = .connecting
-    @Published var message: String?
+    @Published var message: String? { didSet { if message != nil { notice = nil } } }
     @Published var isSubmitting = false
     @Published var submittingURL: String?
     @Published var notice: String?
@@ -62,12 +62,15 @@ enum ConnectionState: Equatable {
     private var lastAcceptedURL: String?
     private var polling: Task<Void, Never>?
     private var reconnecting = false
+    private let archive: DownloadArchive
     private var refreshing = false
     private var lastRecoveryAttempt = Date.distantPast
     private var browserProfileLoadID=UUID()
 
     init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard, cookieReader:any BrowserCookieReading = NativeBrowserCookieReader(), cookieFiles:any TaskCookieServing = TaskCookieFiles()) {
         self.backend=backend; self.defaults=defaults
+        self.archive = DownloadArchive(defaults: defaults)
+        completed = archive.records.map { var item = $0; item.archived = true; return item }
         self.cookieReader=cookieReader;self.cookieFiles=cookieFiles
         browserCookies=defaults.data(forKey:"browserCookiePreferencesV1").flatMap {try? JSONDecoder().decode(BrowserCookiePreferences.self,from:$0)} ?? BrowserCookiePreferences()
         options=defaults.data(forKey:"downloadOptionsV2").flatMap { try? JSONDecoder().decode(DownloadOptions.self,from:$0) } ?? DownloadOptions()
@@ -113,7 +116,7 @@ enum ConnectionState: Equatable {
         do {
             let history = try await backend.history()
             items = history.queue
-            completed = history.done.reversed()
+            completed = archive.merge(history.done, current: history.done + history.queue + history.pending)
             pending = history.pending
             connection = .ready
             let folders=Set((items+completed+pending).compactMap(\.folder))
@@ -172,10 +175,12 @@ enum ConnectionState: Equatable {
         guard !isConfiguring else { message = "后台设置正在保存，请稍后提取。"; return false }
         guard !reconnecting else {message="下载服务正在连接，请稍后提取。";return false}
         guard !runtimeRecoveryPending else {message="后台恢复尚未完成，请先重新连接。";return false}
+        notice = nil
         guard !submissions.contains(where:{$0.state == .uncertain || $0.state == .cancelling}) else {message="请先停止并核对未决任务，再提交新链接。";return false}
         guard !updater.isUpdating else { message = "下载引擎正在更新，完成后即可提取。"; return false }
         guard connection == .ready else { message = "下载服务尚未连接，请先重新连接。"; return false }
         do {
+            try DownloadQuality.validate(quality)
             let link = try LinkParser.resolve(text)
             let url = link.canonicalURL
             let requestOptions = try (selectedOptions ?? options).validated()
@@ -278,7 +283,7 @@ enum ConnectionState: Equatable {
         let accepted=await submit(link ?? originalURL(for:item),quality:quality ?? record?.quality ?? item.quality ?? "best",audioOnly:audioOnly ?? record?.audioOnly ?? item.isAudio,options:selectedOptions,destination:record?.destination ?? destinationPath)
         // Same-URL add can already have completed by now. Never delete that new done record.
         if accepted, let newURL=lastAcceptedURL, newURL != item.url {
-            _ = await clearHistory(ids:[item.url])
+            _ = await clearHistory(ids:[item.id])
         }
         return accepted
     }
@@ -328,15 +333,19 @@ enum ConnectionState: Equatable {
     func canRemoveHistory(_ item: DownloadItem) -> Bool {
         item.isHistory && !exporting.contains(item.url)
     }
-    func clear(_ item: DownloadItem) async { _ = await clearHistory(ids: [item.url]) }
+    func clear(_ item: DownloadItem) async { _ = await clearHistory(ids: [item.id]) }
     func clearHistory(ids: Set<String>) async -> Bool {
         guard !updater.isUpdating, !isSubmitting, !isConfiguring, !reconnecting, !runtimeRecoveryPending else { return false }
-        let selected = completed.filter { ids.contains($0.url) && canRemoveHistory($0) }
+        let selected = completed.filter { ids.contains($0.id) && canRemoveHistory($0) }
         guard !selected.isEmpty else { return false }
         isSubmitting = true
         defer { isSubmitting = false }
         do {
-            try await backend.post("delete", body: HistoryRemoval.body(items: selected))
+            notice = nil
+            message = nil
+            let backendItems = selected.filter { !$0.isArchived }
+            if !backendItems.isEmpty { try await backend.post("delete", body: HistoryRemoval.body(items: backendItems)) }
+            archive.remove(ids: Set(selected.map(\.id)))
             var records = ExportRegistry.records
             for item in selected {
                 let key = ExportRegistry.recordKey(for: item.url, folder: item.folder)
@@ -344,8 +353,8 @@ enum ConnectionState: Equatable {
                 exportErrors[key] = nil
             }
             ExportRegistry.records = records
-            let removed = Set(selected.map(\.url))
-            completed.removeAll { removed.contains($0.url) }
+            let removed = Set(selected.map(\.id))
+            completed.removeAll { removed.contains($0.id) }
             await refresh()
             return true
         } catch {
@@ -525,6 +534,7 @@ enum ConnectionState: Equatable {
         }
     }
     private func report(_ error: Error) {
+        notice = nil
         message = error.localizedDescription
         Backend.log(error.localizedDescription)
     }

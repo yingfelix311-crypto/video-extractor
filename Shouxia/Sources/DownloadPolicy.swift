@@ -1,5 +1,13 @@
 import Foundation
 
+enum DownloadQuality {
+    static let values = ["best", "2160", "1440", "1080", "720", "480"]
+    static func label(for value: String) -> String { value == "best" ? "原始最佳" : value + "p" }
+    static func validate(_ value: String) throws {
+        guard values.contains(value) else { throw AppError.message("请选择有效的清晰度。") }
+    }
+}
+
 struct DownloadOptions: Codable, Equatable, Sendable {
     var videoFormat: String = "any"
     var proxy: String = ""
@@ -73,7 +81,9 @@ struct DownloadFailure: Sendable, Equatable {
         if has(["浏览器 cookie", "浏览器配置", "浏览器会话", "本机网站会话", "会话存储", "钥匙串"]) || (text.contains("无法读取") && text.contains("cookie")) { return .init(kind:.cookies,title:"浏览器信息读取失败",message:"",actionTitle:"网站访问辅助") }
         if has(["sign in", "login required", "log in", "需要登录", "请登录", "登录后"]) { return .init(kind:.cookies,title:"网站要求登录后访问",message:"",actionTitle:"网站访问辅助") }
         if has(["cookie", "网站会话"]) { return .init(kind:.cookies,title:"网站暂时无法访问",message:"",actionTitle:"网站访问辅助") }
-        if has(["requested format", "format is not available", "no video formats", "格式不可用"]) { return .init(kind: .format, title: "所选格式不可用", message: "尝试原始最佳格式或降低清晰度。", actionTitle: "调整参数") }
+        if has(["http error 404", "404: not found", "status code 404", "http error 410", "410: gone", "status code 410"]) { return .init(kind:.unsupportedLink,title:"视频不存在或已删除",message:"请检查原始链接是否仍可访问。",actionTitle:"检查链接") }
+        if has(["no video formats", "no formats found", "no formats available"]) { return .init(kind:.format,title:"网站未返回可下载的视频",message:"可稍后重试或更新下载引擎。",actionTitle:"重试") }
+        if has(["requested format", "format is not available", "格式不可用"]) { return .init(kind: .format, title: "所选格式不可用", message: "尝试原始最佳格式或降低清晰度。", actionTitle: "调整参数") }
         if has(["permission denied", "operation not permitted", "read-only file", "权限"]) { return .init(kind: .permission, title: "无法写入文件", message: "请重新选择可写入的保存目录。", actionTitle: "选择目录") }
         if has(["127.0.0.1:8081", "localhost:8081", "下载服务", "backend offline", "backend is offline", "metube offline", "metube is offline"]) { return .init(kind: .service, title: "下载服务不可用", message: "请检查设置中的后台依赖和服务状态。", actionTitle: "检查服务") }
         if has(["http error 403", "403: forbidden", "status code 403"]) { return .init(kind:.network,title:"网站暂时拒绝访问",message:"",actionTitle:"重试") }

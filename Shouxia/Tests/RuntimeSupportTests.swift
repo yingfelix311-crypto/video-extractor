@@ -1,6 +1,10 @@
 import Foundation
 @main struct RuntimeSupportTests {
  static func main() async throws {
+  let ready=RuntimeSupport.dependencySummary(["ffmpeg":"7","ffprobe":"7","yt-dlp":"2026","python3":"3","deno":"2","node":"未安装"])
+  precondition(ready.contains("就绪") && !ready.contains("缺少"),"Deno alone satisfies JavaScript runtime")
+  let missing=RuntimeSupport.dependencySummary(["ffmpeg":"7","ffprobe":"7","yt-dlp":"2026","python3":"3","deno":"未安装","node":"未安装"])
+  precondition(missing.contains("JavaScript"),"missing both JS runtimes is actionable")
   let fixture=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
   defer { try? FileManager.default.removeItem(at:fixture) }
   let local=fixture.appendingPathComponent(".local/bin"),brew=fixture.appendingPathComponent("brew/bin"),intel=fixture.appendingPathComponent("intel/bin")

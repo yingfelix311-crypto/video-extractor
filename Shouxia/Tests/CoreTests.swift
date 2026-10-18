@@ -55,6 +55,17 @@ import Foundation
         check(DownloadFailure.classify("HTTP 503 service unavailable").kind == .network, "remote unavailable is network")
         check(DownloadFailure.classify("Connection refused at http://127.0.0.1:8081").kind == .service, "known local backend failure")
         check(DownloadFailure.classify("Backend offline").kind == .service, "explicit backend offline")
+        for quality in ["1440", "2160"] {
+            let body = try JSONSerialization.jsonObject(with: DownloadRequest.body(url:"https://example.com/watch",quality:quality,audioOnly:false)) as! [String:Any]
+            check(body["quality"] as? String == quality, "higher source ceiling preserved")
+            let audio = try JSONSerialization.jsonObject(with: DownloadRequest.body(url:"https://example.com/watch",quality:quality,audioOnly:true)) as! [String:Any]
+            check(audio["quality"] as? String == "best", "audio ignores video ceiling")
+        }
+        check((try? DownloadRequest.body(url:"https://example.com/watch",quality:"999",audioOnly:false)) == nil, "unsupported quality rejected")
+        check(DownloadFailure.classify("HTTP Error 404: Not Found").title == "视频不存在或已删除", "404 distinct")
+        check(DownloadFailure.classify("HTTP Error 410: Gone").title == "视频不存在或已删除", "410 distinct")
+        check(DownloadFailure.classify("No video formats found").title == "网站未返回可下载的视频", "empty formats distinct")
+        check(DownloadFailure.classify("Requested format is not available").title == "所选格式不可用", "selected format distinct")
         let videoBody = try JSONSerialization.jsonObject(with: DownloadRequest.body(url: "https://youtu.be/a", quality: "480", audioOnly: false)) as! [String: Any]
         check(videoBody["quality"] as? String == "480", "480p must be preserved")
         check(videoBody["format"] as? String == "any", "video format")
@@ -77,7 +88,7 @@ import Foundation
         let mixed=try JSONDecoder().decode(DownloadItem.self,from:mixedOverrides)
         check(mixed.ytdlOptionsOverrides?["proxy"]=="http://proxy.example:7890","unrelated nested overrides do not break whole history")
         let item = history.done.first!
-        check(item.id == item.url, "UI identity must use URL rather than extractor id")
+        check(item.id != item.mediaID, "UI identity distinguishes occurrences from extractor id")
         for action in DownloadAction.allCases {
             let request = try ActionRequest(action, item: item)
             let body = try JSONSerialization.jsonObject(with: request.body) as! [String: Any]

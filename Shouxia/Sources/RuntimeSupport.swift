@@ -166,17 +166,29 @@ enum RuntimeSupport {
             try FileManager.default.removeItem(at:journalURL)
         } else { try await rollback(journal) }
     }
+    static func dependencySummary(_ versions: [String:String]) -> String {
+        func available(_ name: String) -> Bool {
+            guard let value = versions[name] else { return false }
+            return !value.isEmpty && value != "未安装" && value != "未知"
+        }
+        var missing = ["ffmpeg", "ffprobe", "yt-dlp", "python3"].filter { !available($0) }
+        if !available("deno") && !available("node") { missing.append("JavaScript 运行时（Deno 或 Node）") }
+        return missing.isEmpty ? "下载依赖已就绪" : "下载依赖缺少：" + missing.joined(separator: "、")
+    }
     static func diagnostics() async throws -> String {
         var lines = [String]()
         for (name,label) in [("docker","Docker"),("colima","Colima")] {
             if let path=try? LocalRuntimeExecutable.resolve(name) { lines.append(label + "：已找到 " + path) }
             else { lines.append(label + "：未找到可执行程序") }
         }
-        lines.append("运行前提：已配置 Colima metube profile、colima-metube Docker context 和 metube 容器；不会自动创建。")
+        lines.append("安装环境：原生安装包会准备 Colima 和下载后台；若缺失，请重新运行原生安装包修复。")
         let script = "import json,subprocess,shutil; names=['ffmpeg','ffprobe','node','deno','python3']; out={n:(subprocess.run([n,'--version'] if n not in ['ffmpeg','ffprobe'] else [n,'-version'],capture_output=True,text=True,timeout=5).stdout.splitlines() or ['已安装'])[0][:180] if shutil.which(n) else '未安装' for n in names}; import yt_dlp.version; out['yt-dlp']=yt_dlp.version.__version__; print(json.dumps(out))"
         do {
             let data = try await command(["exec", "metube", "python3", "-c", script], timeout:40)
-            if let versions = try JSONSerialization.jsonObject(with:data) as? [String:String] { for name in versions.keys.sorted() { lines.append(name + "：" + (versions[name] ?? "未知")) } }
+            if let versions = try JSONSerialization.jsonObject(with:data) as? [String:String] {
+                lines.insert(dependencySummary(versions), at: 0)
+                for name in versions.keys.sorted() { lines.append(name + "：" + (versions[name] ?? "未知")) }
+            }
             lines.append("网络参数：" + ((try await networkEnabled()) ? "已启用" : "尚未启用"))
         } catch { lines.append("后台依赖：无法连接，请确认本机服务已启动") }
         return lines.joined(separator:"\n")

@@ -11,14 +11,18 @@ struct UnconfirmedBackendResponse: LocalizedError {
     var errorDescription: String? { message }
 }
 
-struct DownloadItem: Decodable, Identifiable, Sendable {
+struct DownloadItem: Codable, Identifiable, Sendable {
     let mediaID: String
-    var id: String { url }
+    // Backend IDs are URL-keyed; a task folder identifies each local submission.
+    var id: String { folder.map { "task:" + $0 } ?? "legacy:" + url + "|" + mediaID + "|" + (downloadType ?? format ?? "") + "|" + (filename ?? "") }
+    var archived: Bool? = nil
+    var isArchived: Bool { archived == true }
     enum CodingKeys: String, CodingKey {
         case mediaID = "id"
         case downloadType = "download_type"
         case format
         case storedOverrides = "ytdl_options_overrides"
+        case archived
         case title, url, status, percent, speed, eta, size, filename, folder, error, msg, quality
     }
     let downloadType: String?
@@ -60,9 +64,13 @@ struct DownloadItem: Decodable, Identifiable, Sendable {
     }
 }
 
-private struct StoredNetworkOverrides: Decodable, Sendable {
+private struct StoredNetworkOverrides: Codable, Sendable {
     let values:[String:String]
     enum CodingKeys:String,CodingKey {case proxy,referer,user_agent}
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        for (key, value) in values { if let key = CodingKeys(rawValue: key) { try container.encode(value, forKey: key) } }
+    }
     init(from decoder:Decoder)throws {
         let container=try decoder.container(keyedBy:CodingKeys.self)
         var known=[String:String]()
@@ -149,7 +157,8 @@ enum DownloadRequest {
     static func body(url: String, quality: String, audioOnly: Bool, folder: String? = nil, options: DownloadOptions = DownloadOptions(), cookieFile: String? = nil) throws -> Data {
         let options = try options.validated()
         let isDirectMedia = ["mp4", "webm", "mov", "m4v"].contains(URL(string: url)?.pathExtension.lowercased() ?? "")
-        let selectedQuality = !isDirectMedia && ["1080", "720", "480", "best"].contains(quality) ? quality : "best"
+        try DownloadQuality.validate(quality)
+        let selectedQuality = isDirectMedia ? "best" : quality
         var payload: [String: Any] = ["url": url, "download_type": audioOnly ? "audio" : "video", "quality": audioOnly ? "best" : selectedQuality, "codec": "auto", "format": audioOnly ? "mp3" : options.videoFormat, "auto_start": true, "playlist_item_limit": 1]
         if let folder { payload["folder"] = folder }
         var overrides=options.ytdlOverrides
@@ -192,13 +201,40 @@ enum TaskList {
     static func visible(active: [DownloadItem], pending: [DownloadItem], history: [DownloadItem], audioOnly: Bool? = nil, filter: String) -> [DownloadItem] {
         let candidates = filter == "进行中" ? active + pending : filter == "已完成" ? history.filter(\.isComplete) : filter == "失败" ? history.filter(\.isFailed) : active + pending + history
         var seen = Set<String>()
-        return candidates.filter { (audioOnly == nil || $0.isAudio == audioOnly!) && seen.insert($0.url).inserted }
+        return candidates.filter { (audioOnly == nil || $0.isAudio == audioOnly!) && seen.insert($0.id).inserted }
     }
 }
 
 enum HistoryRemoval {
     static func body(items: [DownloadItem]) throws -> Data {
-        let ids = Array(Set(items.filter(\.isHistory).map(\.url))).sorted()
+        let ids = Array(Set(items.filter { $0.isHistory && !$0.isArchived }.map(\.url))).sorted()
         return try JSONSerialization.data(withJSONObject: ["ids": ids, "where": "done", "delete_files": false])
+    }
+}
+
+/// Stores terminal snapshots locally before the URL-keyed backend replaces them.
+/// Uses the same injected preferences store as submission recovery.
+struct DownloadArchive {
+    private let defaults: UserDefaults
+    private let key = "downloadTerminalArchiveV1"
+    init(defaults: UserDefaults) { self.defaults = defaults }
+    var records: [DownloadItem] {
+        defaults.data(forKey: key).flatMap { try? JSONDecoder().decode([DownloadItem].self, from: $0) } ?? []
+    }
+    func merge(_ terminal: [DownloadItem], current: [DownloadItem]) -> [DownloadItem] {
+        var saved = records
+        for item in terminal where item.isHistory {
+            saved.removeAll { $0.id == item.id }
+            saved.insert(item, at: 0)
+        }
+        persist(saved)
+        let currentIDs = Set(current.map(\.id))
+        return terminal.reversed() + saved.filter { !currentIDs.contains($0.id) }.map {
+            var item = $0; item.archived = true; return item
+        }
+    }
+    func remove(ids: Set<String>) { persist(records.filter { !ids.contains($0.id) }) }
+    private func persist(_ records: [DownloadItem]) {
+        if let data = try? JSONEncoder().encode(records) { defaults.set(data, forKey: key) }
     }
 }
