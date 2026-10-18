@@ -1,144 +1,84 @@
-<p align="center">
-  <img src="docs/images/cover.svg" alt="Video Extractor：把喜欢的片段，带回来。下载视频与音频、拖动截取、按倍速导出。" width="100%">
-</p>
+<p align="center"><img src="docs/images/cover.svg" alt="Video Extractor：把喜欢的片段，带回来。" width="100%"></p>
 
-<p align="center">
-  <strong>从一个链接，到一段值得留下的视频。</strong><br>
-  为 macOS 制作的原生影音工具：下载、预览、截取，在一个应用中完成。
-</p>
+# Video Extractor 1.4
 
-<p align="center">
-  <a href="#功能">功能</a> ·
-  <a href="#开始使用">开始使用</a> ·
-  <a href="#构建与验证">构建与验证</a> ·
-  <a href="Shouxia/README.md">详细说明</a>
-</p>
+原生 macOS 视频与音频工具：粘贴视频链接或整段分享文字，提取视频 / MP3，保存后可打开、定位或截取片段。支持菜单栏快捷输入、独立任务记录、按需读取浏览器网站会话与空闲时更新下载引擎。
 
-## macOS / Windows 独立安装版（测试版）
+**[下载 Mac 安装包](https://github.com/yingfelix311-crypto/video-extractor/releases/tag/native-v1.4.0)** · [完整安装说明](docs/INSTALL-MAC.md) · [操作与开发说明](Shouxia/README.md) · [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)
 
-新增 `desktop/` 独立客户端，安装包内置下载与剪辑引擎，无需配置 Docker、Python 或 MeTube。支持视频 / MP3 下载、双节点片段选择、0.25–2× 自定义倍速预览和导出。保留深色、紫色与黄绿色设计。
+当前仓库为私有仓库，下载者需要有仓库访问权限。支持 **Apple Silicon（M 系列）、macOS 14+**。`desktop/` 是单独的 Electron 实验客户端，与这里发布的原生版功能不一致；本次发布只包含原生 Mac 版，不发布 Windows 安装包。
 
-- **Mac**：macOS 14 及以上，Apple Silicon（M1 / M2 / M3 / M4）。
-- **Windows**：Windows 10 / 11，x64。
-- 当前为尚未公证、没有开发者证书的测试包，系统可能限制首次启动。构建产物位于 GitHub Actions，尚未发布公开 Release。
-- [安装与构建说明](desktop/README.md) · [安装包构建记录](https://github.com/yingfelix311-crypto/video-extractor/actions/workflows/build-installers.yml)
+## 安装后怎么用
 
-以下介绍包含原 SwiftUI 客户端功能；菜单栏入口、快捷输入框、引擎自动升级及 1.2.0 浏览器 Cookie 自动同步目前仅在原客户端提供。
+1. 从下载页获取 `Video-Extractor-Native-1.4.0-macOS-arm64.zip`，完整解压。
+2. 双击文件夹中的 `安装原版.command`。首次联网自动准备运行组件与下载服务，通过检查后安装并打开 App。无需另装 Homebrew、Docker Desktop、Python、Node 或 FFmpeg。
+3. 粘贴链接，确认保存文件夹，点击 **提取**。默认最佳画质，浏览器会话辅助默认关闭。
+
+安装器包含 Colima、Docker CLI、Lima；首次仍需联网下载 Linux 基础镜像和固定 MeTube 镜像 / 下载引擎，可能需要数分钟。后台配置为 2 CPU、2 GiB 内存、20 GiB 虚拟磁盘容量。初次联网初始化是安装过程的一部分，安装完成后即可提交下载。
+
+这是 **ad-hoc 签名的测试发行版，未获 Apple 公证**。macOS 可能要求用户在“隐私与安全性”中确认信任；不要关闭系统保护。正式面向任意用户无障碍分发仍需 Developer ID 签名、公证及干净 Mac 的完整安装验收。运行环境冲突时安装器会停止并说明原因，不覆盖其他工具。
 
 ## 功能
 
-| 从这里开始 | 你可以做什么 |
-| :--- | :--- |
-| **粘贴链接，带回视频** | 提取视频或 MP3 音频，选择画质，查看真实下载进度。 |
-| **拖动两端，留下片段** | 打开已下载或本地视频，拖动时间线的开始、结束节点；高亮区域就是导出范围。 |
-| **按自己的节奏播放** | 播放／暂停一键切换，支持常用倍速及 **0.25–2×** 自定义倍速。 |
-| **预览确认，变速导出** | 导出采用点击导出时的倍速，画面与音频同步变速，保存为新的 MP4，保留原文件。 |
-| **文件放在顺手的地方** | 自选保存目录、打开文件、在 Finder 中定位；保存失败可更换位置并重试。 |
-| **需要时，随手打开** | 菜单栏粽子入口与 Spotlight 风格快捷输入框；下载引擎在空闲时自动检查更新。 |
+| 功能 | 行为 |
+| --- | --- |
+| 视频 / MP3 | 支持单视频链接、分享文字、拖入链接，提供进度、取消、重试与保存恢复 |
+| 画质 | 最佳、4K（2160p）、2K（1440p）、1080p、720p、480p；选择源站可用且不超过上限的格式，不放大成假高清 |
+| 保存与记录 | 任务保留提交时的文件夹；同一链接分别提取视频和音频，分别保留记录；移除记录保留文件 |
+| 快捷输入 | 菜单栏入口和主窗口的“快捷输入”，带清空操作和查看任务入口 |
+| 网站访问辅助 | 可选指定浏览器 / 配置；仅读取该平台的 Cookie；默认关闭，手动导入位于高级设置 |
+| 设置与错误 | 统一保存入口；简短失败原因；后台健康概览与按需展开的详细信息 |
+| 本地截取 | 开始 / 结束时间线、0.25–2× 倍速、原尺寸与常见画布尺寸、可缩放预览和新文件导出 |
+| 下载引擎 | 空闲时检查 / 更新 yt-dlp；本次安装包含抖音移动分享页解析补充插件 |
 
-深色底、紫色标识、黄绿色操作按钮，搭配 Sora / Manrope 字体。界面保持统一，让操作集中在视频本身。
+4K / 2K 是否存在由视频源决定。部分网站需要分离的视频、音频轨合并，安装器准备 FFmpeg 完成这一步。选择兼容 MP4 会限制可选源格式，可能获得更低清晰度；它不是转码开关。
 
-### 片段截取
+## Cookie 和浏览器：什么时候设置
 
-![实际时间线组件：开始与结束节点之间的高亮区域为导出片段，白线表示播放位置](docs/images/clip-timeline.png)
+先直接下载。能下载就不必开启任何浏览器设置。只有网站明确要求登录，或需要尝试已有网站会话时，打开 **设置 → 网站访问辅助**，开启后选择平时使用的浏览器及用户配置，点击 **保存并关闭**，再重试。
 
-*实际组件渲染示例：双节点选择范围，白线显示当前播放位置。*
+- 复制链接的浏览器和系统默认浏览器不决定会话来源；以软件中保存的选择为准。
+- Chrome / Edge 可能请求钥匙串授权；Safari 实际读取被拒绝时才需要为当前 App 开启完全磁盘访问权限并重启 App。
+- Cookie 可以只是访客会话。读取成功不能证明账号已登录，也不能保证网站接受请求。
+- 不扫描其他浏览器，不读取密码或历史。会话在本机处理，由本机服务发送给对应网站，不上传开发者服务器。临时文件在后台确认任务结束后清理；不确定的任务保留到核对完毕。
+- “本次不读取浏览器”只跳过这一次自动读取；此前手动导入的 Cookie 仍独立存在，可在高级设置删除。
 
-1. 点击已完成视频旁的 **剪刀**，或选择 **文件 → 截取本地视频…**（`⇧⌘K`）。
-2. 拖动开始、结束节点选择范围；也可输入时间，精确到毫秒。
-3. 选择播放倍速，点击 **预览片段** 核对。
-4. 点击 **导出片段**，选择保存位置。
+## 平台验证范围（2026-10-18）
 
-**例如：** 选中原视频的 10 秒，选择 `2×`，导出约为 5 秒；选择 `0.5×`，导出约为 20 秒。界面会显示预计导出时长。每次导出一个片段，支持取消，已有同名文件不会被覆盖。
+这是实际有限样例，不是对整个平台的承诺。Safari 与 Chrome 均按保存的具体配置验证，未把“有 Cookie”当作“已登录”。
 
-## 开始使用
+| 平台 | 不导入浏览器 Cookie 的样例 | Chrome / Safari 样例观察 |
+| --- | --- | --- |
+| YouTube | 成功 | Chrome 有站点 Cookie 也成功；Safari 无站点 Cookie 仍成功 |
+| Bilibili | 成功 | 两个浏览器会话样例均成功 |
+| TikTok / Instagram / X | 成功 | Chrome 会话样例成功；Safari 无站点 Cookie 仍成功 |
+| 小红书 | 有效完整分享链接成功 | Safari 会话样例成功；Chrome 无站点 Cookie 也成功。旧失效样例加入 Cookie 仍失败 |
+| 抖音 | 当前样例直接解析失败 | 所测 Chrome、Safari 会话配合本项目分享页插件成功；不据此推断必须登录或全部视频都需要 Cookie |
+| 快手 | 当前解析器不支持 | 加 Cookie 无法补足缺失的解析器，暂不列为支持平台 |
 
-### 环境要求
+部分网页自身会创建访客 Cookie，这与从用户浏览器导入 Cookie 是两回事。失效链接、源站没有视频格式、网络限制和站点解析器失效，也不能统一归因于 Cookie。
 
-- **Apple Silicon Mac · macOS 14+**。
-- Apple Command Line Tools，用于本地构建。
-- 下载功能依赖已经配置好的 **Colima / Docker / MeTube**：`metube` profile、`metube` 容器、`127.0.0.1:8081`，并挂载 `~/Downloads/MeTube` 到 `/downloads`。
-- 本地片段处理使用系统 **AVFoundation**，无需 AI 模型或上传视频。
+## 数据、运行与卸载
 
-> 当前仓库提供原生客户端源码与本机构建脚本，尚未提供自动配置下载后端的通用安装包。片段导出消耗随视频分辨率和片段长度增加。
+文件默认缓存在 `~/Downloads/MeTube`，再保存到任务选择的文件夹；偏好及本地记录在当前用户下保存。关闭窗口后可通过菜单栏继续操作；退出 App 不会终止后台已提交的下载。安装器不创建频道订阅，不带作者的浏览器数据、历史、媒体或虚拟机磁盘。
 
-### 下载视频或音频
+只卸载客户端：退出后把 `~/Applications/Video Extractor.app` 移入废纸篓。用户媒体不会随卸载删除。停止后台资源使用见 [安装说明](docs/INSTALL-MAC.md#检查停止与卸载)。
 
-打开应用 → 粘贴链接 → 选择视频／音频与画质 → 点击 **提取**。
+## 开发与验证
 
-可从分享文字中识别链接，也可拖入链接。新任务会记住所选保存位置；保存失败时，界面显示错误原因，并支持选择其他文件夹后重试。
-
-### 平台范围
-
-解析能力由本机 MeTube / yt-dlp 提供，是否可用取决于具体链接、网络、登录要求及平台变化。
-
-| 2026-10-01 样例验证 | 结果 |
-| :--- | :--- |
-| YouTube · Bilibili · TikTok · X | 所测样例下载成功 |
-| Instagram | 所测样例未提供可下载视频格式 |
-| 抖音 | 所测样例要求 Cookie |
-
-以上是有限样例结果，不代表整个平台的所有链接都能下载。SwiftUI 客户端支持手动导入 Cookie，并可选择浏览器配置后自动同步对应平台的 Cookie。
-
-### 自动复用浏览器登录状态（SwiftUI 1.2.0）
-
-打开 **下载设置 → 浏览器登录状态**，开启自动同步，选择 Chrome、Edge、Firefox 的标准本机配置或 Safari 默认存储，点击 **保存浏览器 Cookie 设置**。默认关闭；浏览器和用户配置的修改在保存后生效。首次启用需要后台空闲，可能配置并重启本机下载服务。
-
-之后每次提交或重试抖音、YouTube、Bilibili、TikTok、Instagram、X、小红书、快手链接时，只读取所选配置中对应平台的 Cookie。短链按已知平台域名映射；不会为任意网页扫描全部登录状态。Chrome / Edge 可能请求 macOS 钥匙串授权，Safari 可能需要 **隐私与安全性 → 完全磁盘访问权限**；设置中提供浏览器、刷新配置和系统权限入口。Firefox 不读取容器或分区会话。
-
-Cookie 仅在本机处理，不读取密码、历史记录或云端浏览器数据。每个请求使用独立私有会话文件，通过已验证的本机 MeTube 挂载目录提供给下载引擎；后台确认结束后清理，未决任务保留文件以便核对。关闭自动同步会停止后续读取，闲置文件可在设置中清理。手动 Netscape 文件导入（最多 1 MB）和删除仍单独保留。
-
-同步成功不代表已登录或有下载权限。登录过期时，在浏览器中切换到所选配置重新登录，再重试以读取最新 Cookie；权限或加密不兼容时可关闭自动同步并手动导入。自动同步不会绕过网站验证、付费访问、地区限制或 DRM；没有可用站点 Cookie 时尝试公开访问。开发验证使用合成样本，不提取真实账户 Cookie。
-
-## 记录、文件与后台
-
-- **移除记录**只清理任务历史，保留已下载文件。
-- 截取会生成新的 MP4，原视频保持不变。
-- 退出客户端不会停止 MeTube 后台；其他入口提交的任务也会显示在列表里。
-- 客户端**不会创建自动视频订阅**。如果已有 MeTube 后台配置了频道或播放列表订阅，它仍可独立产生下载任务，需要在后台管理。
-- 下载缓存、订阅配置、账户凭据及运行日志不属于项目源码，不应提交到仓库。
-
-## 构建与验证
+开发依赖：Apple Silicon Mac、macOS 14+、Xcode Command Line Tools（Swift 编译器）、Python 3.11+（打包脚本使用 `hashlib.file_digest`）、Git。Python 只供维护者打包和运行测试，最终用户无需安装。
 
 ```sh
-# 在仓库根目录执行；以下测试不提交下载任务
 bash Shouxia/test.sh
 bash Shouxia/test-store.sh
+bash Shouxia/test-submissions.sh
 bash Shouxia/test-backend.sh
 bash Shouxia/test-runtime.sh
-bash Shouxia/test-submissions.sh
 bash Shouxia/test-browser-cookies.sh
 bash Shouxia/test-browser-session.sh
-bash Shouxia/test-clips.sh
-bash Shouxia/test-clip-timeline.sh
 bash Shouxia/test-update.sh
-
-# 构建原生应用
+python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 bash Shouxia/build.sh
-
-# 退出正在运行的应用后安装
-bash Shouxia/install.sh
 ```
 
-安装位置：`~/Applications/Video Extractor.app`。采用本机 ad-hoc 签名，未进行 Apple 公证。
-
-如需验证实际导出，可向 `test-clips.sh` 传入一个**带音轨、时长超过 2.75 秒的本地短视频**：
-
-```sh
-bash Shouxia/test-clips.sh "/path/to/sample.mp4"
-```
-
-测试截取 1.5 秒范围，校验正常导出、0.5× / 1.35× / 2× 变速时长、音轨时长、取消清理和防覆盖；临时输出会自动清理。
-
-## 代码导航
-
-| 模块 | 位置 |
-| :--- | :--- |
-| 主窗口与快捷输入 | [MainView.swift](Shouxia/Sources/MainView.swift) |
-| 截取窗口、双节点时间线与倍速控件 | [ClipEditor.swift](Shouxia/Sources/ClipEditor.swift) |
-| 时间校验、音视频变速与导出 | [ClipExporter.swift](Shouxia/Sources/ClipExporter.swift) |
-| 任务状态与保存流程 | [Store.swift](Shouxia/Sources/Store.swift) · [Destination.swift](Shouxia/Sources/Destination.swift) |
-| 后台连接与引擎维护 | [Backend.swift](Shouxia/Sources/Backend.swift) · [EngineUpdater.swift](Shouxia/Sources/EngineUpdater.swift) |
-| 配色、字体与按钮 | [Theme.swift](Shouxia/Sources/Theme.swift) |
-
-详细操作见 [使用说明](Shouxia/README.md)。设计探索保存在 [docs/design-options](docs/design-options/)，字体授权保存在 [Resources/Fonts](Shouxia/Resources/Fonts/)。
+应用输出到 `Shouxia/build/Video Extractor.app`。打包和可选剪辑测试命令见 [开发说明](Shouxia/README.md)。本次按用户要求未重新验证剪辑。安装器已覆盖校验、冲突保护、恢复和已有环境复用测试；不把这些测试等同于一台干净 Mac 的首次安装验收。

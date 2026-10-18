@@ -53,8 +53,9 @@ class RecoveryFlowTests(unittest.TestCase):
    app=Path('/Users/felix/Applications/Video Extractor.app')
    if not app.exists():self.skipTest('Original app fixture unavailable')
    shutil.copytree(app,base/'Video Extractor.app')
-   for name in ['runtime.env','preflight.sh']:shutil.copy2(ROOT/'distribution/macos'/name,base/name)
-   script=(ROOT/'distribution/macos/安装原版.command').read_text().replace('home="$HOME"','home='+repr(str(home)))
+   for name in ['runtime.env','preflight.sh','backend_setup.py']:shutil.copy2(ROOT/'distribution/macos'/name,base/name)
+   shutil.copytree(ROOT/'Shouxia/BackendPlugins',base/'BackendPlugins')
+   script=(ROOT/'distribution/macos/安装原版.command').read_text().replace('install_home="$HOME"','install_home='+repr(str(home)))
    (base/'安装原版.command').write_text(script)
    tools=home/'.local/bin';tools.mkdir(parents=True)
    state=home/'test-state';state.mkdir();(state/'owner').write_text('1.0.0' if owned else '<no value>')
@@ -71,7 +72,7 @@ elif command=='exec':
  if 'pip' in a:
   marker=state/'pip-attempted'
   if not marker.exists():marker.write_text('yes');sys.exit(7)
- else:print('2026.09.27.232945')
+ else:print('2026.10.10.233141')
 """
    for name,code in [('docker',docker_code),('colima','#!/bin/bash\nexit 0\n'),('limactl','#!/bin/bash\nexit 0\n')]:
     (base/'runtime/bin'/name).write_text(code);(base/'runtime/bin'/name).chmod(0o755);shutil.copy2(base/'runtime/bin'/name,tools/name)
