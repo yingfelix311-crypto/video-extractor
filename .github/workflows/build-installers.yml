@@ -1,0 +1,88 @@
+name: Build standalone installers
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-installers.yml'
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run engines
+      - run: npm test
+      - run: npm run smoke
+      - run: npm run package:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify packaged runtime
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath '.\dist\win-unpacked\Video Extractor.exe' -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Packaged self-test failed ($($p.ExitCode))" }
+          Get-FileHash .\dist\*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding ascii .\dist\SHA256SUMS.txt
+      - name: Verify Windows installation
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem .\dist\*.exe | Select-Object -First 1).FullName
+          $target = Join-Path $env:RUNNER_TEMP 'VideoExtractorInstalled'
+          $p = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$target") -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installation failed ($($p.ExitCode))" }
+          $p = Start-Process -FilePath (Join-Path $target 'Video Extractor.exe') -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installed self-test failed ($($p.ExitCode))" }
+          $uninstaller = Get-ChildItem $target -Filter '*Uninstall*.exe' | Select-Object -First 1
+          if (-not $uninstaller) { throw 'Uninstaller missing' }
+          $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Uninstall failed ($($p.ExitCode))" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Video-Extractor-Windows-x64
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/SHA256SUMS.txt
+          retention-days: 30
+  mac:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-14
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run engines
+      - run: npm test
+      - run: npm run smoke
+      - run: npm run package:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify packaged runtime
+        run: |
+          'dist/mac-arm64/Video Extractor.app/Contents/MacOS/Video Extractor' --smoke-test
+          shasum -a 256 dist/*.dmg > dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Video-Extractor-macOS-arm64
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/SHA256SUMS.txt
+          retention-days: 30

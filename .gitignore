@@ -9,4 +9,11 @@ Shouxia/.build/
 !.env.example
 *.log
 
+desktop/node_modules/
+desktop/dist/
+desktop/engines/
+
+releases/
 distribution/output/
+
+.superpowers/

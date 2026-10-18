@@ -14,6 +14,8 @@ import UniformTypeIdentifiers
         return true
     }
     private var playbackObservation: NSKeyValueObservation?
+    @Published var canvas: ClipCanvas = .source
+    @Published private(set) var geometry: ClipGeometry?
     @Published var duration = 0.0
     @Published var position = 0.0
     @Published var startText = "00:00:00.000"
@@ -66,6 +68,10 @@ import UniformTypeIdentifiers
                 throw AppError.message("无法读取视频时长或视频轨道，请选择其他文件。")
             }
             guard !Task.isCancelled else { return }
+            let track = try await asset.loadTracks(withMediaType: .video)[0]
+            let geometry = ClipGeometry(naturalSize: try await track.load(.naturalSize), preferredTransform: try await track.load(.preferredTransform))
+            guard geometry.isValid else { throw AppError.message("无法读取视频尺寸。") }
+            self.geometry = geometry
             duration = seconds
             endText = ClipRange.format(min(10, (seconds * 1000).rounded(.down) / 1000))
             let item = AVPlayerItem(asset: asset)
@@ -113,6 +119,7 @@ import UniformTypeIdentifiers
     func save() {
         guard let range, !exporting else { return }
         let exportSpeed = Double(playbackSpeed)
+        let exportCanvas = canvas
         resetPreview()
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.mpeg4Movie]
@@ -132,7 +139,7 @@ import UniformTypeIdentifiers
             }
             defer { monitor.cancel(); exporting = false }
             do {
-                try await exporter.export(source: source, target: target, range: range, speed: exportSpeed)
+                try await exporter.export(source: source, target: target, range: range, speed: exportSpeed, canvas: exportCanvas)
                 progress = 1; result = target
             } catch is CancellationError { notice = "已取消导出，原视频未改动。" }
             catch { self.error = "导出失败：\(error.localizedDescription)" }
@@ -251,7 +258,14 @@ struct ClipSpeedControl: View {
 
 struct ClipEditorView: View {
     @ObservedObject var model: ClipEditorModel
+    @State private var previewHeight:CGFloat=320
     var body: some View {
+        GeometryReader { viewport in
+        let canvasSize=model.geometry.map {model.canvas.size(for:$0)} ?? CGSize(width:16,height:9)
+        let availableWidth=max(1,viewport.size.width-52)
+        let maxPreviewHeight=max(180,min(720,min(viewport.size.height*0.7,availableWidth*canvasSize.height/canvasSize.width)))
+        let displayHeight=min(maxPreviewHeight,max(180,previewHeight))
+        ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
                 Image(systemName: "scissors").font(.system(size: 22)).foregroundStyle(Ink.mint)
@@ -263,11 +277,43 @@ struct ClipEditorView: View {
                 Spacer()
                 Text("保留喜欢的这一段").font(TypeStyle.body(12)).foregroundStyle(Ink.muted)
             }
-            ZStack {
-                Color.black
-                ClipPlayer(player: model.player)
-                if model.loading { ProgressView().tint(Ink.mint) }
-            }.frame(height: 290).clipShape(RoundedRectangle(cornerRadius: 12))
+            HStack {
+                Picker("画面尺寸", selection: $model.canvas) {
+                    ForEach(ClipCanvas.allCases) { canvas in Text(canvas.label).tag(canvas) }
+                }.frame(maxWidth: 360).disabled(model.loading || model.exporting)
+                Spacer()
+                if let geometry = model.geometry {
+                    let size = model.canvas.size(for: geometry)
+                    Text("\(Int(size.width.rounded())) × \(Int(size.height.rounded()))")
+                        .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+                }
+            }
+            GeometryReader { proxy in
+                let fitted = ClipGeometry.fit(size: canvasSize, inside: proxy.size)
+                ZStack {
+                    Color.black
+                    ClipPlayer(player: model.player)
+                    if model.loading { ProgressView().tint(Ink.mint) }
+                }.frame(width: fitted.width, height: fitted.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(height: displayHeight)
+            HStack(spacing:12) {
+                Text("预览大小").foregroundStyle(Ink.muted)
+                Button {previewHeight=max(180,displayHeight-40)} label: {
+                    Image(systemName:"minus.magnifyingglass").frame(width:28,height:28)
+                }.disabled(displayHeight<=180).accessibilityLabel("缩小预览")
+                Slider(value:Binding(get:{displayHeight},set:{previewHeight=$0}),in:180...max(181,maxPreviewHeight))
+                    .frame(maxWidth:180).tint(Ink.mint).disabled(maxPreviewHeight<=180)
+                    .accessibilityLabel("预览大小")
+                Button {previewHeight=min(maxPreviewHeight,displayHeight+40)} label: {
+                    Image(systemName:"plus.magnifyingglass").frame(width:28,height:28)
+                }.disabled(displayHeight>=maxPreviewHeight).accessibilityLabel("放大预览")
+                Button("适应窗口") {previewHeight=maxPreviewHeight}.foregroundStyle(Ink.mint)
+                Spacer(minLength:0)
+            }.font(TypeStyle.body(11)).buttonStyle(.plain)
+            Text("缩放只改变预览大小；导出保持所选尺寸，完整画面等比显示。")
+                .font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             VStack(spacing: 10) {
                 ClipTimeline(model: model)
                     .disabled(model.loading || model.exporting || model.duration == 0)
@@ -294,7 +340,7 @@ struct ClipEditorView: View {
                 Text("时:分:秒.毫秒").foregroundStyle(Ink.muted)
             }.font(TypeStyle.body(11))
             Rectangle().fill(Ink.line).frame(height: 1)
-            if let error = model.error { Text(error).font(TypeStyle.body(12)).foregroundStyle(Ink.danger).textSelection(.enabled) }
+            if let error = model.error { Text(errorSummary(error)).font(TypeStyle.body(12)).foregroundStyle(Ink.danger).textSelection(.enabled) }
             if let notice = model.notice { Text(notice).font(TypeStyle.body(12)).foregroundStyle(Ink.muted) }
             if model.exporting {
                 HStack(spacing: 14) {
@@ -318,11 +364,18 @@ struct ClipEditorView: View {
                 Button("导出片段 ↗") { model.save() }.buttonStyle(SoftButtonStyle(primary: true))
             }.disabled(model.range == nil || model.loading || model.exporting)
         }
-        .padding(26).frame(width: 748).background(Ink.paper).foregroundStyle(Ink.dark)
+        .padding(26).frame(maxWidth: .infinity)
+        }
+        }.frame(minWidth: 640, minHeight: 480).background(Ink.paper).foregroundStyle(Ink.dark)
         .preferredColorScheme(.dark)
         .task { await model.load() }
         .onChange(of: model.startText) { _, _ in model.resetPreview() }
         .onChange(of: model.endText) { _, _ in model.resetPreview() }
+    }
+    private func errorSummary(_ raw:String)->String {
+        if raw.hasPrefix("导出失败") {return "片段导出失败"}
+        if raw.hasPrefix("无法打开视频") {return "视频无法打开"}
+        return raw
     }
     private func timeField(_ title: String, text: Binding<String>, start: Bool) -> some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -353,7 +406,7 @@ struct ClipEditorView: View {
         guard let source, FileManager.default.fileExists(atPath: source.path) else { choose(); return }
         let model = ClipEditorModel(source: source)
         self.model = model
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 720), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 720), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "截取片段 · Video Extractor"
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(Ink.paper)
@@ -361,6 +414,11 @@ struct ClipEditorView: View {
         window.contentView = NSHostingView(rootView: ClipEditorView(model: model))
         window.isReleasedWhenClosed = false; window.delegate = self
         self.window = window
+        window.minSize = NSSize(width: 640, height: 480)
+        if let screen = NSScreen.main {
+            let visible = screen.visibleFrame
+            window.setContentSize(NSSize(width: min(800, visible.width - 40), height: min(800, visible.height - 70)))
+        }
         window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {

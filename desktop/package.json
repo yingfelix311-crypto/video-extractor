@@ -1,0 +1,87 @@
+{
+  "name": "video-extractor-desktop",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Video and audio downloads, clip selection and speed-aware export",
+  "author": "Video Extractor contributors",
+  "license": "UNLICENSED",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "engines": "node scripts/prepare-engines.cjs",
+    "package:mac": "electron-builder --mac dmg --arm64 --publish never",
+    "package:win": "electron-builder --win nsis --x64 --publish never",
+    "smoke": "electron . --smoke-test"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "playwright": "^1.64.0"
+  },
+  "build": {
+    "appId": "local.felix.video-extractor.portable",
+    "productName": "Video Extractor",
+    "artifactName": "Video-Extractor-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "src/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "engines/${os}-${arch}",
+        "to": "engines"
+      },
+      {
+        "from": "resources/licenses",
+        "to": "licenses"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "target": [
+        "dmg"
+      ],
+      "minimumSystemVersion": "14.0",
+      "identity": "-",
+      "icon": "resources/AppIcon.icns"
+    },
+    "dmg": {
+      "title": "Video Extractor",
+      "contents": [
+        {
+          "x": 145,
+          "y": 160
+        },
+        {
+          "x": 405,
+          "y": 160,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": false
+    },
+    "compression": "normal"
+  }
+}

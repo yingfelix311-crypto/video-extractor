@@ -72,6 +72,7 @@ struct ShouxiaApp: App {
                     .keyboardShortcut("r")
             }
             CommandGroup(replacing: .help) {
+                Button("快速上手") { NotificationCenter.default.post(name:.showShouxiaWindow,object:nil); store.showQuickStart=true }
                 Button("使用说明") { FileActions.showHelp() }
                 Button("打开后台日志") { FileActions.openLog() }
             }
@@ -114,7 +115,7 @@ struct ShouxiaApp: App {
     static func showHelp() {
         let alert = NSAlert()
         alert.messageText = "Video Extractor · 本地影音下载"
-        alert.informativeText = "粘贴或拖入一个视频链接，选择清晰度后点击开始提取。可选择保存文件夹，已提交任务保持原位置。\n\n点击菜单栏图标或主窗口的小粽子，可打开快捷输入框。退出应用不会中断后台下载；如需释放后台内存，请使用桌面 MeTube视频下载 文件夹中的停止文件。\n\n第一版使用这台 Mac 已安装的 MeTube 环境。平台可能要求登录，不能保证所有链接均可下载。"
+        alert.informativeText = "先粘贴公开视频链接或分享文字，选择视频/音频、画质与保存位置后提取。新用户可从帮助菜单打开“快速上手”。MP4 源格式仅选择源站提供的格式，不进行转码。\n\n本版本使用已配置的本机 Colima（metube 配置）、Docker（colima-metube 上下文）与 MeTube（metube 容器），不会自动安装。可在设置中检查后台依赖。\n\n先直接下载。网站访问辅助属于可选尝试，可在快速上手中展开说明；它默认关闭，解析失败本身不能证明需要登录。手动文件、代理和请求头位于高级设置。\n\n提交结果未确认时，先停止并核对。保存失败时选择可写文件夹，再重试保存；已提交任务保留原位置，重试保存使用当前文件夹。\n\n保存完成后可打开文件、在 Finder 中显示或截取片段。剪辑默认原视频尺寸，也可选择常用尺寸，等比完整显示并填黑；导出新文件保留源视频。关闭窗口后仍可从菜单栏操作，退出应用不会中断已提交的后台下载。"
         alert.addButton(withTitle: "知道了")
         alert.runModal()
     }
