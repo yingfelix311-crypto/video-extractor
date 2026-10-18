@@ -21,3 +21,4 @@ distribution/output/
 # Reproducible demo sources are tracked; local render caches are not.
 docs/marketing/demo-project/.hyperframes/
 docs/marketing/demo-project/node_modules/
+docs/marketing/demo-project/.thumbnails/
