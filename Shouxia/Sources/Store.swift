@@ -467,6 +467,31 @@ enum ConnectionState: Equatable {
         do {try await backend.deleteCookies();hasCookies=try await backend.cookieStatus();settingsMessage="Cookie 已从下载服务移除。"}
         catch {settingsMessage=error.localizedDescription}
     }
+    /// Validate every draft and prepare runtime support before publishing any preference.
+    @discardableResult func saveSettings(options candidate:DownloadOptions, browser:BrowserCookiePreferences, automaticUpdates:Bool) async -> Bool {
+        guard canConfigure else {settingsMessage="请先完成任务或后台维护，再保存设置。";return false}
+        isConfiguring=true;settingsMessage=nil
+        defer {isConfiguring=false}
+        do {
+            let validated=try candidate.validated()
+            if browser.enabled {
+                let profiles=try await Task.detached {try NativeBrowserCookieReader.profiles(for:browser.browser)}.value
+                guard profiles.contains(where:{$0.directory==browser.profile}) else {throw AppError.message("未找到所选浏览器配置，请重新选择或先打开浏览器。")}
+            }
+            if (browser.enabled || !validated.ytdlOverrides.isEmpty) && !networkEnabled {
+                try await RuntimeSupport.enableNetworkOptions()
+                networkEnabled=try await RuntimeSupport.networkEnabled()
+                guard networkEnabled else {throw AppError.message("后台参数支持尚未就绪，请检查后台后重试。")}
+            }
+            if browser.enabled {try await RuntimeSupport.validateCookieMount()}
+            options=validated
+            browserCookies=browser
+            updater.automaticEnabled=automaticUpdates
+            browserCookieStatus=browser.enabled ? "已开启所选配置的会话读取；账号登录未验证。" : "浏览器读取已关闭；手动导入文件仍可使用。"
+            settingsMessage="设置已保存；新任务使用这些参数。"
+            return true
+        } catch {settingsMessage=error.localizedDescription;return false}
+    }
     @discardableResult func saveOptions(_ candidate:DownloadOptions) async -> Bool {
         guard canConfigure else {settingsMessage="请先完成下载、解析或引擎维护，再保存设置。";return false}
         isConfiguring=true;settingsMessage=nil

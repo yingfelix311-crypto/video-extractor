@@ -24,7 +24,7 @@ struct MainView: View {
                     Text("把喜欢的片段，带回来。").font(TypeStyle.body(13)).foregroundStyle(Ink.muted)
                 }
                 Spacer()
-                Button { QuickWindow.shared.show(store:store) } label: { ReceiveMark(size:68) }.buttonStyle(.plain).help("打开快捷输入框").accessibilityLabel("快捷输入")
+                ReceiveMark(size:68).accessibilityHidden(true)
             }.padding(.top,37).padding(.bottom,26)
             HStack(spacing:12) {
                 HStack(spacing:12) {
@@ -85,16 +85,16 @@ struct MainView: View {
                     ForEach(visibleItems) { item in
                         HStack(spacing: 12) {
                             if managingHistory {
-                                if removableIDs.contains(item.url) {
+                                if removableIDs.contains(item.id) {
                                     Button {
-                                        if !selectedHistory.insert(item.url).inserted { selectedHistory.remove(item.url) }
+                                        if !selectedHistory.insert(item.id).inserted { selectedHistory.remove(item.id) }
                                     } label: {
-                                        Image(systemName: selectedHistory.contains(item.url) ? "checkmark.square.fill" : "square")
-                                            .foregroundStyle(selectedHistory.contains(item.url) ? Ink.mint : Ink.muted)
+                                        Image(systemName: selectedHistory.contains(item.id) ? "checkmark.square.fill" : "square")
+                                            .foregroundStyle(selectedHistory.contains(item.id) ? Ink.mint : Ink.muted)
                                     }.buttonStyle(.plain).accessibilityLabel("选择记录：\(item.title)")
                                 } else { Color.clear.frame(width: 14, height: 14) }
                             }
-                            TaskRow(item:item,store:store,pending:store.pending.contains{$0.url==item.url})
+                            TaskRow(item:item,store:store,pending:!item.isArchived && store.pending.contains{$0.url==item.url})
                         }
                     }
                     if visibleItems.isEmpty && visibleSubmissions.isEmpty {
@@ -128,8 +128,8 @@ struct MainView: View {
     }
     private var standaloneMessage:String? {
         guard let message=store.message,
-              !visibleSubmissions.contains(where:{$0.error==message}),
-              !visibleItems.contains(where:{$0.isFailed && ($0.error ?? $0.msg)==message}) else {return nil}
+              !store.submissions.contains(where:{$0.error==message}),
+              !store.completed.contains(where:{$0.isFailed && ($0.error ?? $0.msg)==message}) else {return nil}
         return message
     }
     private var failedCount:Int { store.completed.filter(\.isFailed).count + store.submissions.filter { $0.state == .failed }.count }
@@ -140,8 +140,8 @@ struct MainView: View {
     }
     private var removableIDs: Set<String> {
         Set(visibleItems.filter { item in
-            store.completed.contains { $0.url == item.url } && store.canRemoveHistory(item)
-        }.map(\.url))
+            store.completed.contains { $0.id == item.id } && store.canRemoveHistory(item)
+        }.map(\.id))
     }
     private func clearInput() { input=""; inputFocused=true }
     private func submit() {
@@ -184,16 +184,17 @@ struct FormatControl:View {
 struct QualityControl:View {
     @Binding var quality:String
     @State private var expanded=false
-    private var label:String { quality=="best" ? "最佳画质" : quality+"p" }
+    private var label:String { DownloadQuality.label(for:quality) }
     var body:some View {
         Button { expanded.toggle() } label: { HStack(spacing:13) { Text(label); Image(systemName:"chevron.down").font(.system(size:9)) }.font(TypeStyle.body(12)).padding(7) }
             .buttonStyle(.plain).accessibilityLabel("画质：\(label)")
             .popover(isPresented:$expanded,arrowEdge:.bottom) {
                 VStack(spacing:4) {
-                    ForEach(["1080","720","480","best"],id:\.self) { value in
-                        Button { quality=value; expanded=false } label: { HStack { Text(value=="best" ? "最佳画质" : value+"p"); Spacer(); if quality==value { Image(systemName:"checkmark").foregroundStyle(Ink.mint) } }.font(TypeStyle.body(13)).padding(10).background(quality==value ? Ink.purple : .clear).clipShape(RoundedRectangle(cornerRadius:6)) }.buttonStyle(.plain)
+                    ForEach(DownloadQuality.values,id:\.self) { value in
+                        Button { quality=value; expanded=false } label: { HStack { Text(DownloadQuality.label(for:value)); Spacer(); if quality==value { Image(systemName:"checkmark").foregroundStyle(Ink.mint) } }.font(TypeStyle.body(13)).padding(10).background(quality==value ? Ink.purple : .clear).clipShape(RoundedRectangle(cornerRadius:6)) }.buttonStyle(.plain)
                     }
-                }.padding(8).frame(width:165).foregroundStyle(Ink.dark).background(Ink.surface).preferredColorScheme(.dark)
+                    Text("按源站可用画质下载，最高不超过所选档位；不会放大。音频忽略画质。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted).fixedSize(horizontal:false,vertical:true).padding(8)
+                }.padding(8).frame(width:240).foregroundStyle(Ink.dark).background(Ink.surface).preferredColorScheme(.dark)
             }
     }
 }
@@ -240,8 +241,8 @@ struct QuickPanel:View {
             Text(audioOnly ? "音频 · MP3" : "视频 · \(store.options.videoFormat == "mp4" ? "MP4 源格式" : "原始最佳格式")").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             if let notice=store.notice {
                 Text(notice).font(TypeStyle.body(11)).foregroundStyle(Ink.mint)
-                Button("查看任务") { openWindow(id:"main"); NSApp.activate(ignoringOtherApps:true) }.buttonStyle(.plain).accessibilityLabel("查看任务")
             }
+            Button("查看任务") { openWindow(id:"main"); NSApp.activate(ignoringOtherApps:true) }.buttonStyle(.plain).font(TypeStyle.body(11)).foregroundStyle(Ink.mint)
             HStack(spacing:8) {
                 Image(systemName:"folder").foregroundStyle(Ink.muted)
                 Button { FileActions.revealFolder(store.destinationPath) } label: {

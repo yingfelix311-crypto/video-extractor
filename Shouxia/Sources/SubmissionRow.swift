@@ -32,7 +32,7 @@ struct SubmissionRow:View {
             else { Image(systemName:"exclamationmark.circle").foregroundStyle(Ink.danger).frame(width:46,height:46) }
             VStack(alignment:.leading,spacing:7) {
                 Text(title).font(TypeStyle.medium(13))
-                Text(intent.summary).foregroundStyle(Ink.muted)
+                Text(intent.audioOnly ? "音频 · MP3" : "视频 · \(DownloadQuality.label(for:intent.quality)) · \(intent.options.videoFormat == "mp4" ? "MP4 源格式" : "原始最佳格式")").foregroundStyle(Ink.muted)
                 Text(intent.link.originalURL).lineLimit(2).textSelection(.enabled)
                 if intent.link.wasNormalized { Text("已转换为：\(intent.link.canonicalURL)").foregroundStyle(Ink.muted).textSelection(.enabled) }
                 if let error=intent.error { FailureDetails(raw:error,store:store) }
@@ -42,7 +42,7 @@ struct SubmissionRow:View {
                 VStack(spacing:12) {
                     Button("重试") { Task { await store.retrySubmission(intent) } }.accessibilityLabel("重试失败的提交").disabled(store.isSubmitting || store.isConfiguring)
                     if store.browserCookies.enabled, intent.browserSessionRequested != false, DownloadFailure.classify(intent.error ?? "").kind == .cookies {
-                        Button("跳过浏览器重试") {Task {await store.retrySubmissionWithoutBrowser(intent)}}.accessibilityLabel("本次不读取浏览器信息并重试").disabled(store.isSubmitting || store.isConfiguring)
+                        Button("跳过浏览器重试") {Task {await store.retrySubmissionWithoutBrowser(intent)}}.accessibilityLabel("本次不读取浏览器信息并重试").help("仅跳过本次浏览器读取；手动导入文件仍可能使用。").disabled(store.isSubmitting || store.isConfiguring)
                     }
                     Button("移除") { store.dismissSubmission(intent.id) }.accessibilityLabel("移除失败的提交")
                 }.buttonStyle(.plain).foregroundStyle(Ink.mint)

@@ -21,7 +21,7 @@ struct RetryEditor:View {
             }
             HStack { FormatControl(audioOnly:$audioOnly); QualityControl(quality:$quality).disabled(audioOnly) }
             Picker("视频格式",selection:$options.videoFormat) { Text("原始最佳格式").tag("any"); Text("MP4 源格式").tag("mp4") }.disabled(audioOnly)
-            Text("重试保留原保存位置；可调整链接、画质和格式。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+            Text("重试保留原保存位置；画质以源站提供为准，不会放大。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
             HStack {
                 Button("下载设置") { showNetworkSettings=true }
                 Button("使用当前网络设置") {
