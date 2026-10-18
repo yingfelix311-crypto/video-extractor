@@ -23,7 +23,7 @@ enum ConnectionState: Equatable {
     @Published var message: String? { didSet { if message != nil { notice = nil } } }
     @Published var isSubmitting = false
     @Published var submittingURL: String?
-    @Published var notice: String?
+    @Published var notice: String? { didSet { createdNoticeTaskFolder = nil } }
     @Published var showSettings = false
     @Published var showQuickStart = false
     @Published var quickStartOpenSettings = false
@@ -60,6 +60,7 @@ enum ConnectionState: Equatable {
     private let cookieFiles:any TaskCookieServing
     private var cancellationRequested = false
     private var lastAcceptedURL: String?
+    private var createdNoticeTaskFolder: String?
     private var polling: Task<Void, Never>?
     private var reconnecting = false
     private let archive: DownloadArchive
@@ -122,6 +123,10 @@ enum ConnectionState: Equatable {
             completed = archive.merge(history.done, current: history.done + history.queue + history.pending)
             pending = history.pending
             connection = .ready
+            if let folder = createdNoticeTaskFolder,
+               !(history.queue + history.pending).contains(where: { $0.folder == folder }) {
+                notice = nil
+            }
             let folders=Set((items+completed+pending).compactMap(\.folder))
             submissions.removeAll { folders.contains($0.id) && $0.state != .cancelling }
             let active=Set((history.queue+history.pending).compactMap(\.folder))
@@ -262,7 +267,12 @@ enum ConnectionState: Equatable {
                     return false
                 }
                 lastAcceptedURL=(items+pending+completed).first(where:{$0.folder==taskFolder})?.url
-                notice=link.wasNormalized ? "已转换抖音页面链接，并创建下载任务。" : "下载任务已创建，可在下方查看进度。"
+                // Only a confirmed active task owns the created notice. A lagging
+                // initial snapshot remains on the existing uncertain-result path.
+                if (items + pending).contains(where: { $0.folder == taskFolder }) {
+                    notice=link.wasNormalized ? "已转换抖音页面链接，并创建下载任务。" : "下载任务已创建，可在下方查看进度。"
+                    createdNoticeTaskFolder = taskFolder
+                }
                 return true
             } catch {
                 await refresh()

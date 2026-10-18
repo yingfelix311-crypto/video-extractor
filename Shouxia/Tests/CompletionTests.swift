@@ -97,6 +97,31 @@ actor CompletionBackend: BackendServing {
         again.notice="previous success"
         again.message="new failure"
         precondition(again.notice==nil,"errors replace previous success notice")
+        let lifecycleBackend=CompletionBackend()
+        let lifecycleDefaults=UserDefaults(suiteName:suite+".lifecycle")!
+        defer {lifecycleDefaults.removePersistentDomain(forName:suite+".lifecycle")}
+        let lifecycle=DownloadStore(backend:lifecycleBackend,defaults:lifecycleDefaults)
+        lifecycle.connection = .ready
+        for status in ["error", "finished", "removed"] {
+            let accepted=await lifecycle.submit("https://example.com/notice-"+status,quality:"best",audioOnly:false)
+            precondition(accepted && lifecycle.notice != nil,"confirmed queued submission shows created notice")
+            await lifecycle.refresh()
+            precondition(lifecycle.notice != nil,"created notice remains while confirmed task is active")
+            let queued=try await lifecycleBackend.history().queue[0]
+            if status == "removed" {
+                await lifecycleBackend.set([])
+            } else {
+                var json=try JSONSerialization.jsonObject(with:JSONEncoder().encode(queued)) as! [String:Any]
+                json["status"]=status
+                let terminal=try JSONDecoder().decode(DownloadItem.self,from:JSONSerialization.data(withJSONObject:json))
+                await lifecycleBackend.set([terminal])
+            }
+            await lifecycle.refresh()
+            precondition(lifecycle.notice==nil,"created notice clears when corresponding backend task becomes terminal or disappears")
+            await lifecycleBackend.set([])
+            await lifecycle.refresh()
+            precondition(lifecycle.notice==nil,"created notice stays cleared after terminal snapshot is removed")
+        }
         print("PASS: durable occurrences, safe removal, latest retry, notice lifecycle")
     }
 }
