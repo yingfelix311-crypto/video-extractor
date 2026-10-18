@@ -13,8 +13,16 @@ struct UnconfirmedBackendResponse: LocalizedError {
 
 struct DownloadItem: Codable, Identifiable, Sendable {
     let mediaID: String
-    // Backend IDs are URL-keyed; a task folder identifies each local submission.
-    var id: String { folder.map { "task:" + $0 } ?? "legacy:" + url + "|" + mediaID + "|" + (downloadType ?? format ?? "") + "|" + (filename ?? "") }
+    // Only this app's UUID folder namespace identifies one local occurrence.
+    // Legacy backend folders can be empty or shared by unrelated URLs.
+    var id: String {
+        if let folder, folder.hasPrefix("VideoExtractor/"),
+           UUID(uuidString: String(folder.dropFirst("VideoExtractor/".count))) != nil {
+            return "task:" + folder
+        }
+        let components = [url, folder ?? "", mediaID, downloadType ?? format ?? "", filename ?? ""]
+        return "legacy:" + components.map { "\($0.utf8.count):\($0)" }.joined()
+    }
     var archived: Bool? = nil
     var isArchived: Bool { archived == true }
     enum CodingKeys: String, CodingKey {
