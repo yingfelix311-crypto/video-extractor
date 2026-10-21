@@ -104,7 +104,7 @@ struct MainView: View {
             }.frame(maxHeight:.infinity)
             HStack(spacing:8) {
                 Circle().fill(store.connection.isReady ? Ink.mint : Ink.muted).frame(width:5,height:5)
-                Text(updater.isUpdating ? updater.status : store.connection.label).lineLimit(1)
+                Text(updater.isUpdating ? updater.status : store.connectionLabel).lineLimit(1)
                 if !store.connection.isReady && !updater.isUpdating { Button("重新连接") { Task { await store.reconnect() } }.buttonStyle(.plain) }
                 Spacer()
                 GlyphButton(symbol:"folder",title:"打开保存文件夹") { FileActions.revealFolder(store.destinationPath) }
@@ -256,7 +256,7 @@ struct QuickPanel:View {
                 FailureDetails(raw:message,store:store)
             } else if !store.connection.isReady || updater.isUpdating {
                 HStack {
-                    Text(updater.isUpdating ? updater.status : store.connection.label)
+                    Text(updater.isUpdating ? updater.status : store.connectionLabel)
                     if !store.connection.isReady && !updater.isUpdating {
                         Button("重新连接") { Task { await store.reconnect() } }.buttonStyle(.plain)
                     }

@@ -23,6 +23,18 @@ protocol BackendServing: Sendable {
     func version() async throws -> BackendVersion
 }
 
+protocol BackendPreparing: Sendable {
+    var usesInstaller: Bool { get }
+    func prepare(progress: @escaping @Sendable (String) async -> Void) async throws
+}
+
+struct LocalBackendPreparation: BackendPreparing {
+    var usesInstaller: Bool { Backend.hasBundledInstaller }
+    func prepare(progress: @escaping @Sendable (String) async -> Void) async throws {
+        try await Backend.ensureService(progress: progress)
+    }
+}
+
 struct BackendVersion: Decodable, Sendable {
     let version: String
     let engine: String
@@ -107,17 +119,48 @@ struct Backend: BackendServing, Sendable {
         return data
     }
     static func boot() async throws {
-        try await startVirtualMachine()
-        try await startContainer()
+        try await ensureService()
+    }
+    static var installerURL: URL? {
+        Bundle.main.resourceURL?.appendingPathComponent("BackendInstaller/安装原版.command")
+    }
+    static var hasBundledInstaller: Bool {
+        installerURL.map { FileManager.default.isExecutableFile(atPath: $0.path) || FileManager.default.fileExists(atPath: $0.path) } ?? false
+    }
+    /// A copied app must be able to finish first-run setup without a separate terminal installer.
+    static func ensureService(progress: @escaping @Sendable (String) async -> Void = { _ in }) async throws {
+        if let installer = installerURL, hasBundledInstaller {
+            await progress("正在检查下载环境")
+            do {
+                try await run(executable: "/bin/bash", arguments: [installer.path, "--check"], timeout: 60)
+                return
+            } catch is CancellationError { throw CancellationError() }
+            catch { log("Backend setup/check: \(error.localizedDescription)") }
+            try await run(executable: "/bin/bash", arguments: [installer.path, "--backend-only"], timeout: 1200, progress: progress)
+        } else {
+            await progress("正在启动下载服务")
+            try await startVirtualMachine()
+            try await startContainer()
+        }
     }
     static func startVirtualMachine() async throws {
-        try await run(executable: LocalRuntimeExecutable.resolve("colima"), arguments: ["start", "--profile", "metube"], timeout: 75)
+        try await run(executable: LocalRuntimeExecutable.resolve("colima"), arguments: ["start", "--profile", "metube"], timeout: 180)
     }
     static func startContainer() async throws {
         try await run(executable: LocalRuntimeExecutable.resolve("docker"), arguments: ["--context", "colima-metube", "start", "metube"], timeout: 10)
     }
-    private static func run(executable: String, arguments: [String], timeout: TimeInterval) async throws {
-        try await Task.detached(priority: .utility) {
+    static func setupFailure(_ output: String, timedOut: Bool = false) -> String {
+        if timedOut { return "准备下载服务超时；检查网络后点“重新连接”继续，已下载的组件会保留。" }
+        if let reason = output.components(separatedBy: .newlines).first(where: { $0.hasPrefix("安装停止：") }) { return reason }
+        if output.contains("Virtualization is not available") { return "系统未允许启动虚拟机。请在本机正常打开应用后重试，或查看后台日志。" }
+        return "下载服务准备失败。请检查网络后重新连接；可在设置中打开后台日志查看原因。"
+    }
+    static func setupProgress(_ output: String) -> String? {
+        output.components(separatedBy: .newlines).last(where: { $0.hasPrefix("进度：") }).map { String($0.dropFirst(3)) }
+    }
+    private static func run(executable: String, arguments: [String], timeout: TimeInterval,
+                            progress: @escaping @Sendable (String) async -> Void = { _ in }) async throws {
+        let task = Task.detached(priority: .utility) {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: executable)
             process.arguments = arguments
@@ -129,20 +172,53 @@ struct Backend: BackendServing, Sendable {
             let output = try FileHandle(forWritingTo: logURL)
             defer { try? output.close() }
             try output.seekToEnd()
+            let startOffset = try output.offset()
             process.standardOutput = output
             process.standardError = output
             try process.run()
+            defer {
+                if process.isRunning { process.terminate() }
+            }
             let deadline = Date().addingTimeInterval(timeout)
-            while process.isRunning && Date() < deadline { try await Task.sleep(for: .milliseconds(200)) }
+            let reader = try FileHandle(forReadingFrom: logURL)
+            defer { try? reader.close() }
+            try reader.seek(toOffset: startOffset)
+            var captured = Data()
+            var lastProgress: String?
+            func readOutput() throws -> String {
+                captured.append(try reader.readToEnd() ?? Data())
+                if captured.count > 128 * 1024 { captured = Data(captured.suffix(128 * 1024)) }
+                return String(decoding: captured, as: UTF8.self)
+            }
+            do {
+                while process.isRunning && Date() < deadline {
+                    try Task.checkCancellation()
+                    if let text = setupProgress(try readOutput()), text != lastProgress {
+                        lastProgress = text
+                        await progress(text)
+                    }
+                    try await Task.sleep(for: .milliseconds(500))
+                }
+            } catch {
+                process.terminate()
+                try? await Task.sleep(for: .milliseconds(500))
+                if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+                throw error
+            }
             if process.isRunning {
                 process.terminate()
                 // Bound the wait even if a subprocess ignores SIGTERM.
                 try await Task.sleep(for: .milliseconds(500))
                 if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-                throw AppError.message("启动下载服务超时，请查看日志后重新连接。")
+                throw AppError.message(setupFailure(try readOutput(), timedOut: true))
             }
-            guard process.terminationStatus == 0 else { throw AppError.message("下载服务启动失败，请查看日志后重试。") }
-        }.value
+            guard process.terminationStatus == 0 else { throw AppError.message(setupFailure(try readOutput())) }
+        }
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
     static var logURL: URL {
         let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Shouxia")

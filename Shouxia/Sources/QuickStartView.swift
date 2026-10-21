@@ -23,7 +23,7 @@ struct QuickStartView: View {
                     DestinationControl(store:store).disabled(maintenance)
                     guideSection("3. 查看任务结果", "在主窗口查看进度或失败原因。保存失败时，更换可写入文件夹后点“重试保存”；提交未确认时，先停止并核对。")
                     Divider()
-                    Text(store.connection.label).font(TypeStyle.body(12)).foregroundStyle(Ink.muted)
+                    Text(store.connectionLabel).font(TypeStyle.body(12)).foregroundStyle(Ink.muted)
                     if store.connection == .offline {
                         HStack {
                             Button("重新连接") {Task {await store.reconnect()}}.disabled(maintenance)
@@ -32,7 +32,7 @@ struct QuickStartView: View {
                     }
                     Text(store.diagnostics.components(separatedBy:"\n").first ?? "").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                     DisclosureGroup("后台运行详情") {
-                        Text("后台使用本机 Colima、Docker 与 MeTube；首次连接可能需要约一分钟。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+                        Text("后台使用本机 Colima、Docker 与 MeTube；首次准备需要联网下载组件，可能需要几分钟。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                         Text(store.diagnostics).font(TypeStyle.body(11)).textSelection(.enabled)
                     }
                     DisclosureGroup("网站访问辅助说明（可选）",isExpanded:$accessHelpExpanded) {

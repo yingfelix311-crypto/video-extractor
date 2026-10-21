@@ -20,6 +20,8 @@ enum ConnectionState: Equatable {
     @Published var completed: [DownloadItem] = []
     @Published var pending: [DownloadItem] = []
     @Published var connection: ConnectionState = .connecting
+    @Published private(set) var backendProgress = "正在准备下载服务"
+    var connectionLabel: String { connection == .starting ? backendProgress : connection.label }
     @Published var message: String? { didSet { if message != nil { notice = nil } } }
     @Published var isSubmitting = false
     @Published var submittingURL: String?
@@ -53,6 +55,7 @@ enum ConnectionState: Equatable {
     let updater = EngineUpdater()
     private var maintenanceChecked = Date.distantPast
     private let backend: any BackendServing
+    private let preparation: any BackendPreparing
     private let defaults: UserDefaults
     private var submissionTask: Task<Void, Error>?
     private var cookieSyncTask:Task<String?,Error>?
@@ -63,6 +66,7 @@ enum ConnectionState: Equatable {
     private var createdNoticeTaskFolder: String?
     private var polling: Task<Void, Never>?
     private var reconnecting = false
+    private var backendSetupPending = false
     private let archive: DownloadArchive
     private var cookieCleanup:Task<Void,Never>?
     private var cookieCleanupIDs=Set<String>()
@@ -71,8 +75,9 @@ enum ConnectionState: Equatable {
     private var lastRecoveryAttempt = Date.distantPast
     private var browserProfileLoadID=UUID()
 
-    init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard, cookieReader:any BrowserCookieReading = NativeBrowserCookieReader(), cookieFiles:any TaskCookieServing = TaskCookieFiles()) {
+    init(backend: any BackendServing = Backend(), defaults: UserDefaults = .standard, cookieReader:any BrowserCookieReading = NativeBrowserCookieReader(), cookieFiles:any TaskCookieServing = TaskCookieFiles(), preparation: any BackendPreparing = LocalBackendPreparation()) {
         self.backend=backend; self.defaults=defaults
+        self.preparation=preparation
         self.archive = DownloadArchive(defaults: defaults)
         completed = archive.records.map { var item = $0; item.archived = true; return item }
         self.cookieReader=cookieReader;self.cookieFiles=cookieFiles
@@ -99,7 +104,7 @@ enum ConnectionState: Equatable {
                 let seconds = self?.items.isEmpty == false ? 2 : 5
                 try? await Task.sleep(for: .seconds(seconds))
                 guard !Task.isCancelled else { break }
-                if let self,self.runtimeRecoveryPending {
+                if let self,self.runtimeRecoveryPending || self.backendSetupPending || self.connection == .offline {
                     if Date().timeIntervalSince(self.lastRecoveryAttempt)>30 {await self.reconnect()}
                     continue
                 }
@@ -122,7 +127,7 @@ enum ConnectionState: Equatable {
             items = history.queue
             completed = archive.merge(history.done, current: history.done + history.queue + history.pending)
             pending = history.pending
-            connection = .ready
+            if !backendSetupPending { connection = .ready }
             if let folder = createdNoticeTaskFolder,
                !(history.queue + history.pending).contains(where: { $0.folder == folder }) {
                 notice = nil
@@ -168,14 +173,21 @@ enum ConnectionState: Equatable {
         lastRecoveryAttempt=Date()
         do {try await RuntimeSupport.recoverIfNeeded();runtimeRecoveryPending=false}
         catch {runtimeRecoveryPending=true;message="后台恢复待重试：\(error.localizedDescription)"}
-        if !runtimeRecoveryPending {await refresh();if connection == .ready {return}}
+        if !runtimeRecoveryPending && !preparation.usesInstaller {await refresh();if connection == .ready {return}}
         connection = .starting
+        backendSetupPending = preparation.usesInstaller
+        backendProgress = "正在检查下载环境"
         do {
-            try await Backend.startVirtualMachine()
-            try await RuntimeSupport.recoverIfNeeded()
+            if runtimeRecoveryPending {
+                try await Backend.startVirtualMachine()
+                try await RuntimeSupport.recoverIfNeeded()
+            }
+            try await preparation.prepare { [weak self] text in
+                await self?.updateBackendProgress(text)
+            }
+            backendSetupPending = false
             runtimeRecoveryPending=false
-            try await Backend.startContainer()
-            for _ in 0..<3 {
+            for _ in 0..<30 {
                 await refresh()
                 if connection == .ready { return }
                 try await Task.sleep(for: .seconds(1))
@@ -187,6 +199,8 @@ enum ConnectionState: Equatable {
             report(error)
         }
     }
+
+    private func updateBackendProgress(_ text: String) { backendProgress = text }
 
     func submit(_ text: String, quality: String, audioOnly: Bool, options selectedOptions: DownloadOptions? = nil, destination: String? = nil, useBrowserSession: Bool? = nil) async -> Bool {
         guard !isSubmitting else { return false }
