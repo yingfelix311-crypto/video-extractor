@@ -112,3 +112,7 @@ python3 -m unittest discover -s distribution/tests -p 'test_*.py'
 维护者可查看 [Mac 正式签名、公证与干净安装验收流程](docs/RELEASE-MAC.md)。项目分享素材与中英文介绍在 [推广素材包](docs/marketing/SHARE-COPY.md)。
 
 第三方依赖遵循各自许可证，见 [依赖与授权](distribution/macos/licenses/DEPENDENCIES.md)。仓库公开与源码开源许可是两回事；当前尚未为自有源码选择许可证。
+
+## 安装可靠性改进（1.4.2 候选版，尚未替换上方 1.4.1 公开附件）
+
+新打包流程将完整后台安装组件放进唯一的 App：复制应用后首次打开自动准备 MeTube，显示当前步骤，中断可重试。补齐 Colima 必需的 `lima` 命令，只有服务、下载引擎和解析插件检查通过才允许提取。详见 [改动与验证门槛](docs/FIRST-LAUNCH-1.4.2.md)。重新发布候选包前，上方旧版下载入口仍采用旧的安装方式。
