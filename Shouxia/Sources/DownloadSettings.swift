@@ -82,7 +82,7 @@ struct EngineSettings:View {
                         DisclosureGroup("后台依赖详情") {Text(store.diagnostics).font(TypeStyle.body(11)).textSelection(.enabled)}
                     }
                     Divider()
-                    Text("原生安装包会准备本机 Colima 与下载后台。首次连接可能需要约一分钟；依赖缺失时可重新运行安装包修复。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
+                    Text("原生安装包会准备本机 Colima 与下载后台。首次准备需要联网下载组件，可能需要几分钟；依赖缺失或初始化中断时，点击重新连接可自动补齐。").font(TypeStyle.body(11)).foregroundStyle(Ink.muted)
                     Button("打开运行日志") { FileActions.openLog() }.buttonStyle(.plain).accessibilityLabel("打开后台运行日志")
                 }.font(TypeStyle.body(12)).textFieldStyle(.roundedBorder).padding(.vertical,3).disabled(saving)
             }

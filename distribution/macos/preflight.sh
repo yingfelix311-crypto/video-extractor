@@ -1,4 +1,22 @@
 #!/bin/bash
+installer_lock(){
+ local directory="$1" owner
+ mkdir -p "$(dirname "$directory")" || return 1
+ if ! mkdir "$directory" 2>/dev/null;then
+  owner="$(cat "$directory/pid" 2>/dev/null || true)"
+  case "$owner" in ''|*[!0-9]*) echo '后台准备锁尚未就绪；请稍后重新连接。' >&2;return 1;;esac
+  if kill -0 "$owner" 2>/dev/null;then echo '另一个后台安装正在进行，请稍后重新连接。' >&2;return 1;fi
+  # Only remove a dead installer's small lock; never delete runtime/user state.
+  rm "$directory/pid" && rmdir "$directory" && mkdir "$directory" || return 1
+ fi
+ printf '%s\n' "$$" > "$directory/pid"
+}
+installer_unlock(){
+ local directory="$1"
+ if [ "$(cat "$directory/pid" 2>/dev/null || true)" = "$$" ];then
+  rm "$directory/pid";rmdir "$directory"
+ fi
+}
 runtime_preflight(){
  local base="$1" install_root="$2" relative target
  while IFS= read -r relative;do

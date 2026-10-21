@@ -17,6 +17,11 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
 
 @main struct BackendTests {
     static func main() async throws {
+        precondition(Backend.setupProgress("noise\n进度：下载镜像\nnoise\n进度：检查服务\n") == "检查服务")
+        precondition(Backend.setupProgress("no progress") == nil)
+        precondition(Backend.setupFailure("noise\n安装停止：镜像下载失败\n").contains("镜像下载失败"))
+        precondition(Backend.setupFailure("Virtualization is not available on this hardware").contains("系统未允许"))
+        precondition(Backend.setupFailure("", timedOut: true).contains("已下载的组件会保留"))
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StubProtocol.self]
         let backend = Backend(baseURL: URL(string: "http://127.0.0.1:8081")!, session: URLSession(configuration: config))

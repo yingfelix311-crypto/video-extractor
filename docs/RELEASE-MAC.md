@@ -77,3 +77,20 @@ python3 distribution/macos/notarize_app.py \
 
 - [Apple：Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 - [Apple：Customizing the notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
+
+## 1.4.2 候选包的变化
+
+`package_native.py` 现在把完整后台 payload 放进 App 的 `Contents/Resources/BackendInstaller`，ZIP 中只有一个 App，首次启动会自动初始化。使用新构建打包：
+
+```sh
+python3 distribution/macos/package_native.py \
+  --app 'Shouxia/build/Video Extractor.app' \
+  --runtime-root /path/to/pinned-runtime \
+  --output distribution/output/native-1.4.2
+```
+
+`runtime-root` 需提供固定版本 `bin/colima`、`bin/docker`、`bin/limactl` 及完整 `share/lima`；官方 `lima` wrapper 由打包器补齐。打包器核对版本、可执行权限、guest agent 与模板。运行完整打包/解压测试，核对单 App、签名及内置校验清单。
+
+该步骤会修改 App 的 Resources，因此先接受 ad-hoc 原生构建，保留内层运行组件签名，仅重签外层 App，绝不默默替换 Developer ID 签名。当前 `notarize_app.py` 会拒绝包含这些嵌套代码的 bundle，必须逐项完成运行组件审查、签名和完整产品公证后才能正式发布；不要绕过它的保护。
+
+CI 上传的是候选 ZIP，不自动替换公开 1.4.1 附件。发布前执行上方干净 Mac 验收；尤其要在未安装 Homebrew、Colima、Docker、Python 的独立账户上，从首次打开跑到真实下载。原生 Swift 编译与测试不能由一个旧版可执行文件或模拟后端替代。

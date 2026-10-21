@@ -27,3 +27,29 @@ jobs:
         run: python3 -m unittest discover -s distribution/tests -p 'test_*.py'
       - name: Verify signature
         run: codesign --verify --deep --strict 'Shouxia/build/Video Extractor.app'
+      - name: Assemble pinned runtime and package the first-launch app
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          mkdir -p "$RUNNER_TEMP/video-extractor-runtime"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/native-1.4.1.zip" \
+            https://github.com/yingfelix311-crypto/video-extractor/releases/download/native-v1.4.1/Video-Extractor-Native-1.4.1-macOS-arm64.zip
+          echo "23c93f66243354dac44c1cc5fe292371a5cd31e5c29d1f5decc10d57dce22482  $RUNNER_TEMP/native-1.4.1.zip" | shasum -a 256 -c -
+          ditto -x -k "$RUNNER_TEMP/native-1.4.1.zip" "$RUNNER_TEMP/video-extractor-runtime"
+          python3 distribution/macos/package_native.py \
+            --app 'Shouxia/build/Video Extractor.app' \
+            --runtime-root "$RUNNER_TEMP/video-extractor-runtime/Video-Extractor-Native-1.4.1-macOS-arm64/runtime" \
+            --output distribution/output/native-candidate
+          ditto -x -k distribution/output/native-candidate/*.zip "$RUNNER_TEMP/native-extracted"
+          codesign --verify --deep --strict "$RUNNER_TEMP/native-extracted/Video Extractor.app"
+          bash "$RUNNER_TEMP/native-extracted/Video Extractor.app/Contents/Resources/BackendInstaller/安装原版.command" --verify-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Video-Extractor-Native-first-launch-candidate
+          path: |
+            distribution/output/native-candidate/*.zip
+            distribution/output/native-candidate/SHA256SUMS.txt
+            distribution/output/native-candidate/INSTALL.md
+            distribution/output/native-candidate/ORIGINAL-MANIFEST.json
+          if-no-files-found: error
+          retention-days: 14

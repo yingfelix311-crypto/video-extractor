@@ -46,11 +46,24 @@ class PreflightTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    p=Path(folder)/'colima.yaml';p.write_text('cpu: 2\nmemory: 2\ndisk: 20\narch: aarch64\nvmType: vz\nmountType: virtiofs\nruntime: docker\n')
    self.assertEqual(self.run_check('profile_preflight',p).returncode,0)
+ def test_live_installer_lock_is_not_stolen(self):
+  with tempfile.TemporaryDirectory() as folder:
+   lock=Path(folder)/'setup.lock';lock.mkdir();(lock/'pid').write_text(str(os.getpid()))
+   result=self.run_check('installer_lock',lock)
+   self.assertNotEqual(result.returncode,0)
+   self.assertIn('另一个后台安装',result.stderr)
+   self.assertEqual((lock/'pid').read_text(),str(os.getpid()))
+ def test_dead_installer_lock_is_recovered(self):
+  with tempfile.TemporaryDirectory() as folder:
+   lock=Path(folder)/'setup.lock';lock.mkdir();(lock/'pid').write_text('2147483647')
+   result=self.run_check('installer_lock',lock)
+   self.assertEqual(result.returncode,0,result.stderr)
+   self.assertNotEqual((lock/'pid').read_text().strip(),'2147483647')
 class RecoveryFlowTests(unittest.TestCase):
- def run_case(self,owned,create=False,setup_fail=False):
+ def run_case(self,owned,create=False,setup_fail=False,backend_only=False,missing_lima=False,pull_failures=0):
   with tempfile.TemporaryDirectory() as folder:
    root=Path(folder).resolve();base=root/'bundle';home=root/'user';base.mkdir();(base/'runtime/bin').mkdir(parents=True)
-   app=ROOT/'Shouxia/build/Video Extractor.app'
+   app=Path(os.environ.get('NATIVE_TEST_APP',str(ROOT/'Shouxia/build/Video Extractor.app')))
    if not app.exists():self.fail('Run bash Shouxia/build.sh before native installer flow tests')
    shutil.copytree(app,base/'Video Extractor.app')
    for name in ['runtime.env','preflight.sh','backend_setup.py']:shutil.copy2(ROOT/'distribution/macos'/name,base/name)
@@ -62,6 +75,7 @@ class RecoveryFlowTests(unittest.TestCase):
    state=home/'test-state';state.mkdir();(state/'owner').write_text('1.0.0' if owned else '<no value>')
    if not create:(state/'created').write_text('yes')
    if setup_fail:(state/'setup-fail').write_text('yes')
+   (state/'pull-failures').write_text(str(pull_failures))
    docker_code=f"#!{sys.executable}\n"+"""import sys,pathlib
 home=pathlib.Path(__file__).resolve().parents[2];state=home/'test-state';a=sys.argv[3:];command=a[0]
 with (state/'calls').open('a') as f:f.write(' '.join(a)+'\\n')
@@ -74,6 +88,10 @@ if command=='inspect':
  elif 'Labels' in fmt:print((state/'owner').read_text())
 elif command=='create':
  (state/'created').write_text('yes');(state/'owner').write_text('1.0.0');print('c'*64)
+elif command=='pull':
+ remaining=int((state/'pull-failures').read_text())
+ if remaining:
+  (state/'pull-failures').write_text(str(remaining-1));sys.exit(7)
 elif command=='exec':
  if '--install' in a:
   if (state/'setup-fail').exists():sys.exit(9)
@@ -86,12 +104,13 @@ elif command=='exec':
    if (state/'owner').read_text()=='1.0.0' and not (state/'fresh-install').exists():sys.exit(7)
  else:print('2026.10.10.233141')
 """
-   for name,code in [('docker',docker_code),('colima','#!/bin/bash\nexit 0\n'),('limactl','#!/bin/bash\nexit 0\n')]:
+   for name,code in [('docker',docker_code),('colima','#!/bin/bash\nexit 0\n'),('limactl','#!/bin/bash\nexit 0\n'),('lima','#!/bin/bash\nexit 0\n')]:
+    if name=='lima' and missing_lima:continue
     (base/'runtime/bin'/name).write_text(code);(base/'runtime/bin'/name).chmod(0o755);shutil.copy2(base/'runtime/bin'/name,tools/name)
    if create:(state/'fresh-install').write_text('yes')
    (tools/'lsof').write_text('#!/bin/bash\nexit 1\n');(tools/'lsof').chmod(0o755)
    for name in ['curl','open']:(tools/name).write_text('#!/bin/bash\nexit 0\n');(tools/name).chmod(0o755)
-   (base/'runtime-files.txt').write_text('bin/docker\nbin/colima\nbin/limactl\n')
+   (base/'runtime-files.txt').write_text('bin/docker\nbin/colima\nbin/limactl\n'+('' if missing_lima else 'bin/lima\n'))
    profile=home/'.colima/metube/colima.yaml';profile.parent.mkdir(parents=True);profile.write_text('cpu: 2\nmemory: 2\ndisk: 20\narch: aarch64\nvmType: vz\nmountType: virtiofs\nruntime: docker\n')
    journal=home/'Library/Application Support/Shouxia/installer-state';journal.mkdir(parents=True)
    if owned:(journal/'backend-init.pending').write_text('c'*64+'\n')
@@ -99,22 +118,33 @@ elif command=='exec':
    for file in sorted(base.rglob('*')):
     if file.is_file():sums.append(hashlib.sha256(file.read_bytes()).hexdigest()+'  '+file.relative_to(base).as_posix())
    (base/'SHA256SUMS.txt').write_text('\n'.join(sums)+'\n')
-   first=subprocess.run(['bash',str(base/'安装原版.command')],capture_output=True,text=True,errors="replace")
-   if setup_fail:
+   arguments=['--backend-only'] if backend_only else []
+   first=subprocess.run(['bash',str(base/'安装原版.command'),*arguments],capture_output=True,text=True,errors="replace")
+   if missing_lima:
+    self.assertNotEqual(first.returncode,0);self.assertIn('缺少必需组件：lima',first.stderr)
+    self.assertFalse((state/'calls').exists());self.assertFalse((home/'Applications/Video Extractor.app').exists())
+   elif setup_fail:
     self.assertNotEqual(first.returncode,0);self.assertFalse((home/'Applications/Video Extractor.app').exists());self.assertIn('解析插件准备失败',first.stderr)
    elif create:
     self.assertEqual(first.returncode,0,first.stdout+first.stderr)
-    calls=(state/'calls').read_text();self.assertIn('create --name metube',calls);self.assertIn('ALLOW_YTDL_OPTIONS_OVERRIDES=true',calls);self.assertIn('--install',calls);self.assertIn('--activate',calls);self.assertTrue((home/'Applications/Video Extractor.app').exists())
+    calls=(state/'calls').read_text();self.assertIn('create --name metube',calls);self.assertIn('ALLOW_YTDL_OPTIONS_OVERRIDES=true',calls);self.assertIn('--install',calls);self.assertIn('--activate',calls)
+    self.assertEqual((home/'Applications/Video Extractor.app').exists(),not backend_only)
+    self.assertEqual(calls.count('pull '),pull_failures+1)
    elif owned:
     self.assertNotEqual(first.returncode,0);self.assertTrue((journal/'backend-init.pending').exists());self.assertFalse((home/'Applications/Video Extractor.app').exists())
-    second=subprocess.run(['bash',str(base/'安装原版.command')],capture_output=True,text=True,errors="replace")
+    second=subprocess.run(['bash',str(base/'安装原版.command'),*arguments],capture_output=True,text=True,errors="replace")
     self.assertEqual(second.returncode,0,second.stdout+second.stderr);self.assertFalse((journal/'backend-init.pending').exists());self.assertEqual((journal/'backend-init.complete').read_text(),'c'*64+'\n')
     self.assertEqual((state/'calls').read_text().count('-m pip install'),2)
+    self.assertEqual((home/'Applications/Video Extractor.app').exists(),not backend_only)
    else:
     self.assertEqual(first.returncode,0,first.stdout+first.stderr);self.assertNotIn('-m pip install',(state/'calls').read_text());self.assertFalse((state/'pip-attempted').exists())
  def test_interrupted_owned_container_resumes_pinned_initialization(self):self.run_case(True)
  def test_existing_user_container_never_has_engine_reinstalled(self):self.run_case(False)
  def test_new_container_installs_overrides_and_plugin_before_client(self):self.run_case(False,create=True)
  def test_plugin_failure_does_not_update_client(self):self.run_case(False,setup_fail=True)
+ def test_first_launch_prepares_backend_without_copying_another_app(self):self.run_case(False,create=True,backend_only=True)
+ def test_backend_only_recovers_interrupted_engine_install(self):self.run_case(True,backend_only=True)
+ def test_missing_lima_stops_before_starting_background(self):self.run_case(False,missing_lima=True)
+ def test_transient_image_pull_failure_retries_and_finishes(self):self.run_case(False,create=True,backend_only=True,pull_failures=2)
 
 if __name__=='__main__':unittest.main()

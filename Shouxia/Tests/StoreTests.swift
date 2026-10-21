@@ -1,7 +1,47 @@
 import Foundation
 
+actor SetupFixture: BackendPreparing {
+    nonisolated var usesInstaller: Bool { true }
+    var attempts = 0
+    var failNext = true
+    func prepare(progress: @escaping @Sendable (String) async -> Void) async throws {
+        attempts += 1
+        await progress("正在下载测试后台")
+        if failNext { failNext = false; throw AppError.message("安装停止：网络已中断") }
+    }
+}
+
+actor HealthySetupBackend: BackendServing {
+    var posts = 0
+    func history() async throws -> History { History(done: [], queue: [], pending: []) }
+    func post(_ route: String, body: Data) async throws { posts += 1 }
+    func cookieStatus() async throws -> Bool { false }
+    func uploadCookies(_ data: Data) async throws {}
+    func deleteCookies() async throws {}
+    func cancelAdd() async throws {}
+    func version() async throws -> BackendVersion { BackendVersion(version: "fixture", engine: "fixture") }
+}
+
 @main struct StoreTests {
     @MainActor static func main() async throws {
+        let setupDefaultsName = "VideoExtractor.SetupTests." + UUID().uuidString
+        let setupDefaults = UserDefaults(suiteName: setupDefaultsName)!
+        defer { setupDefaults.removePersistentDomain(forName: setupDefaultsName) }
+        let setup = SetupFixture()
+        let setupBackend = HealthySetupBackend()
+        let firstLaunch = DownloadStore(backend: setupBackend, defaults: setupDefaults, preparation: setup)
+        await firstLaunch.reconnect()
+        precondition(firstLaunch.connection == .offline, "HTTP health alone must not bypass unfinished installation")
+        precondition(firstLaunch.backendProgress == "正在下载测试后台", "first-run stage is visible")
+        precondition(firstLaunch.message?.contains("网络已中断") == true, "setup failure retains its cause")
+        await firstLaunch.refresh()
+        precondition(firstLaunch.connection != .ready, "polling cannot turn a partial installation into ready")
+        let accepted = await firstLaunch.submit("https://example.com/video", quality: "best", audioOnly: false)
+        let postCount = await setupBackend.posts
+        precondition(!accepted && postCount == 0, "unfinished setup must never submit a download")
+        await firstLaunch.reconnect()
+        let attempts = await setup.attempts
+        precondition(firstLaunch.connection == .ready && attempts == 2, "reconnect resumes setup and only then becomes ready")
         let fm = FileManager.default
         let folder = "VideoExtractor/test-" + UUID().uuidString
         let sourceDir = SafeDownloadPath.root.appendingPathComponent(folder)
