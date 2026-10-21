@@ -20,3 +20,5 @@ Downloaded during the first installation:
 The release manifest records hashes of all bundled files and the exact source commit. Checksums verify package integrity, not developer identity; the application has an ad-hoc signature and is not notarized.
 
 `desktop/` has a separate dependency/license set and is not included in this native release.
+
+The Lima `lima` shell wrapper is vendored from `lima-vm/lima` tag `v2.2.0`, `cmd/lima`, with its Apache-2.0 SPDX notice. Its SHA256 is `88aeac60dbcb69ec675c0ce9af24d5f66255f4899fa73320402db57925500832`. Both `lima` and `limactl` are required by Colima and are included in the embedded backend installer.
